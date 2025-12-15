@@ -1,7 +1,10 @@
 <?php
-$servername = "127.0.0.1";
-$port = 3306;
-$username = "root";
+include __DIR__.  "/../../private/conection.php"
+/*
+$servername = "";
+$port = "";
+$username = "";
 $password = "";
-$dbname = "geometrydash";
+$dbname = "";
+*/
 ?>
