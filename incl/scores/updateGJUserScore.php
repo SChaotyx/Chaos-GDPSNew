@@ -6,6 +6,8 @@ require_once "../lib/GJPCheck.php";
 require_once "../lib/exploitPatch.php";
 require_once "../lib/mainLib.php";
 $gs = new mainLib();
+require_once "../discord/discordLib.php";
+$dis = new discordLib();
 
 if(!isset($_POST["userName"]) OR !isset($_POST["secret"]) OR !isset($_POST["stars"])
 	OR !isset($_POST["demons"]) OR !isset($_POST["icon"]) OR !isset($_POST["color1"])
@@ -57,7 +59,7 @@ $userID = $gs->getUserID($id, $userName);
 $uploadDate = time();
 $hostname = $gs->getIP();
 
-$query = $db->prepare("SELECT stars,coins,demons,userCoins,diamonds,moons FROM users WHERE userID=:userID LIMIT 1"); //getting differences
+$query = $db->prepare("SELECT * FROM users WHERE userID=:userID LIMIT 1"); //getting differences
 $query->execute([':userID' => $userID]);
 $old = $query->fetch();
 
@@ -104,8 +106,30 @@ $demondiff = $demons - $old["demons"];
 $ucdiff = $userCoins - $old["userCoins"];
 $diadiff = $diamonds - $old["diamonds"];
 $moondiff = $moons - $old["moons"];
+$extID = $old["extID"];
+
 $query2 = $db->prepare("INSERT INTO actions (type, value, timestamp, account, value2, value3, value4, value5, value6) 
 									 VALUES ('9',:stars,:timestamp,:account,:coinsd, :demon, :usrco, :diamond, :moons)"); //creating the action
 $query2->execute([':timestamp' => time(), ':stars' => $starsdiff, ':account' => $userID, ':coinsd' => $coindiff, ':demon' => $demondiff, ':usrco' => $ucdiff, ':diamond' => $diadiff, ':moons' => $moondiff]);
+if(is_numeric($_POST["accountID"])){
+	$userData = array(
+		"userName" => $userName, "userID" => $userID,
+		"stars" => $stars, "starsDiff" => $starsdiff,
+		"coins" => $coins, "coinsDiff" => $coindiff,
+		"demons" => $demons, "demonsDiff" => $demondiff,
+		"uc" => $userCoins, "ucDiff" => $ucdiff,
+		"diamonds" => $diamonds, "diamondsDiff" => $diadiff,
+		"extID" => $extID
+	);
+	if($starsdiff > 0 OR $coindiff > 0 OR $demondiff > 0 OR $ucdiff > 0 OR $diadiff > 0){
+		$dis->publicAction(1, $userData, 0);
+		//$dis->discordNotifyNew(2, $_POST["accountID"], 2, 1, 18, 7, 1, 0, 0, 0);
+		$dis->roleAssign($_POST["accountID"]);
+	}else if($starsdiff < 0 OR $coindiff < 0 OR $demondiff < 0 OR $ucdiff < 0 OR $diadiff < 0){
+		$dis->publicAction(1, $userData, 0);
+		//$dis->discordNotifyNew(2, $_POST["accountID"], 2, 1, 18, 7, 1, 0, 0, 0);
+		$dis->roleAssign($_POST["accountID"]);
+	}
+}
 echo $userID;
 ?>
