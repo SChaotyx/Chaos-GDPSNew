@@ -273,6 +273,7 @@ CREATE TABLE `levels` (
   `originalReup` int(11) NOT NULL DEFAULT '0' COMMENT 'used for levelReupload.php',
   `hostname` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
   `isCPShared` int(11) NOT NULL DEFAULT '0',
+  `cpCount` int(11) NOT NULL DEFAULT '0',
   `isDeleted` int(11) NOT NULL DEFAULT '0',
   `isLDM` int(11) NOT NULL DEFAULT '0',
   `unlisted2` int(11) NOT NULL DEFAULT '0',

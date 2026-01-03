@@ -647,20 +647,94 @@ class mainLib {
 			return $query->fetchColumn();
 		return "255,255,255";
 	}
-	public function rateLevel($accountID, $levelID, $stars, $difficulty, $auto, $demon){
-		if(!is_numeric($accountID)) return false;
 
+	//
+	public function getLevelValue($levelID, $value) {
 		include __DIR__ . "/connection.php";
-		//lets assume the perms check is done properly before
-		$query = "UPDATE levels SET starDemon=:demon, starAuto=:auto, starDifficulty=:diff, starStars=:stars, rateDate=:now WHERE levelID=:levelID";
-		$query = $db->prepare($query);	
-		$query->execute([':demon' => $demon, ':auto' => $auto, ':diff' => $difficulty, ':stars' => $stars, ':levelID'=>$levelID, ':now' => time()]);
-		
-		$query = $db->prepare("INSERT INTO modactions (type, value, value2, value3, timestamp, account) VALUES ('1', :value, :value2, :levelID, :timestamp, :id)");
-		$query->execute([':value' => $this->getDiffFromStars($stars)["name"], ':timestamp' => time(), ':id' => $accountID, ':value2' => $stars, ':levelID' => $levelID]);
-		
-		
+		$query = $db->prepare("SELECT $value FROM levels WHERE levelID=:levelID");
+		$query->execute([':levelID' => $levelID]);
+		$result = $query->fetchAll();
+		foreach($result as &$level){
+		$value = $level["$value"];
+		}
+		return $value;
 	}
+	//My own rate function
+	public function rateLevel($accountID, $levelID, $stars, $difficulty, $auto, $demon, $feature){
+		include __DIR__ . "/connection.php";
+		$gs = new mainLib();
+		$query = $db->prepare("SELECT rateDate, levelLength, original FROM levels WHERE levelID = :levelID");
+		$query->execute([':levelID'=>$levelID]);
+		if($query->rowCount() == 0){ return false; }
+		$result = $query->fetchAll();
+		foreach($result as $lvl){
+			$rateDate = $lvl["rateDate"];
+			$length = $lvl["levelLength"];
+			$original = $lvl["original"];
+		}
+		if($rateDate == 0){
+			$rateDate = time();
+		}
+		//new rate
+		switch($feature) {
+			// Stole from TheJulfor
+			case 0: //starRate
+				$feat = 0;
+				$epic = 0;
+				$cpCount = 1;
+				break;
+			case 1: //feature
+				$feat = 1;
+				$epic = 0;
+				$cpCount = 2;
+				break;
+			case 2: //epic
+				$feat = 1;
+				$epic = 1;
+				$cpCount = 3;
+				break;
+			case 3: //legendary
+				$feat = 1;
+				$epic = 2;
+				$cpCount = 4;
+				break;
+			case 4: //mythic
+				$feat = 1;
+				$epic = 3;
+				$cpCount = 5;
+				break;
+		}
+
+		//Creator Point Count... old gdps 2.1 rules
+		/*
+		if($length == 2 OR $original == 1 OR $feature == 0){
+			$cpCount = 1;
+		}else{
+			$cpCount = 2;
+		}
+
+		//medium level not verify coins
+		if($length == 2){ $starCoins = 0; }else{ $starCoins = 1; }
+		*/
+
+		//lets assume the perms check is done properly before
+		$query = "UPDATE levels SET starDemon=:demon, starAuto=:auto, starDifficulty=:diff, starStars=:stars, rateDate=:now, starCoins=:starCoins, starFeatured=:feature, starEpic=:starEpic, cpCount=:cpCount WHERE levelID=:levelID";
+		$query = $db->prepare($query);	
+		$query->execute([':demon' => $demon, ':auto' => $auto, ':diff' => $difficulty, ':stars' => $stars, ':levelID'=>$levelID, ':now' =>$rateDate, ':feature'=>$feat, 'starEpic'=>$epic, ':cpCount'=> $cpCount, ':starCoins'=> $starCoins]);
+		//check mod action
+		/*
+		$query = $db->prepare("SELECT count(*) FROM modactions WHERE type=:type AND value3=:itemID AND account=:account");
+		$query->execute([':type' => 1, ':itemID' => $levelID, ':account' => $accountID]);
+		if($query->fetchColumn() < 1){
+			$query = $db->prepare("INSERT INTO modactions (type, value, value2, value3, timestamp, account) VALUES ('1', :value, :value2, :levelID, :timestamp, :id)");
+			$query->execute([':value' => $this->getDiffFromStars($stars)["name"], ':timestamp' => time(), ':id' => $accountID, ':value2' => $stars, ':levelID' => $levelID]);
+		}else{
+			$query = $db->prepare("UPDATE modactions SET type=1, value=:value, value2=:value2, value3=:levelID, timestamp=:timestamp, account=:id WHERE type=1 AND value3=:levelID AND account=:id");
+			$query->execute([':value' => $this->getDiffFromStars($stars)["name"], ':timestamp' => time(), ':id' => $accountID, ':value2' => $stars, ':levelID' => $levelID]);
+		}	
+		*/
+	}
+
 	public function featureLevel($accountID, $levelID, $state) {
 		if(!is_numeric($accountID)) return false;
 		switch($state) {
