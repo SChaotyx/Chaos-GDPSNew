@@ -25,6 +25,16 @@ class Commands {
 		$query2->execute([':id' => $levelID]);
 		$targetExtID = $query2->fetchColumn();
 		//ADMIN COMMANDS
+		if(substr($comment,0,7) == '!unrate' AND $gs->checkPermission($accountID, "commandRate")){
+			$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0', cpCount='0' WHERE levelID=:levelID");
+			$query->execute([':levelID' => $levelID]);
+			//$gs->updatecp(0, $lvlUserID);
+			//$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('16', :value, :levelID, :timestamp, :id)");
+			//$query->execute([':value' => "0", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
+			//$dis->discordNotifyNew(1, $levelID, 1, 2, 3, 3, $accountID, 1, 0, 0);
+			return true;
+		}
+		/*
 		if(substr($comment,0,5) == '!rate' AND $gs->checkPermission($accountID, "commandRate")){
 			$starStars = $commentarray[2];
 			if($starStars == ""){
@@ -68,6 +78,7 @@ class Commands {
 			$query->execute([':value' => "1", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
 			return true;
 		}
+		*/
 		if(substr($comment,0,7) == '!unepic' AND $gs->checkPermission($accountID, "commandUnepic")){
 			$query = $db->prepare("UPDATE levels SET starEpic='0' WHERE levelID=:levelID");
 			$query->execute([':levelID' => $levelID]);
