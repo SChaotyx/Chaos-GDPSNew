@@ -59,6 +59,7 @@ $userID = $gs->getUserID($id, $userName);
 $uploadDate = time();
 $hostname = $gs->getIP();
 
+$gs->updatecp(0, $userID); //update Creator Points
 $query = $db->prepare("SELECT * FROM users WHERE userID=:userID LIMIT 1"); //getting differences
 $query->execute([':userID' => $userID]);
 $old = $query->fetch();

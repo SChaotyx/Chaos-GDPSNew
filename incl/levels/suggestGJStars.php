@@ -5,7 +5,9 @@ include "../lib/connection.php";
 require_once "../lib/GJPCheck.php";
 require_once "../lib/exploitPatch.php";
 require_once "../lib/mainLib.php";
+require_once "../discord/discordLib.php";
 $gs = new mainLib();
+$dis = new discordLib();
 $gjp2check = isset($_POST['gjp2']) ? $_POST['gjp2'] : $_POST['gjp'];
 $gjp = ExploitPatch::remove($gjp2check);
 $stars = ExploitPatch::remove($_POST["stars"]);
@@ -22,8 +24,8 @@ if($gs->checkPermission($accountID, "actionRateStars")){
 	//if(86400 > $timerated OR $gs->checkPermission($accountID, "adminCommands")){
 	$difficulty = $gs->getDiffFromStars($stars);
 	$gs->rateLevel($accountID, $levelID, $stars, $difficulty["diff"], $difficulty["auto"], $difficulty["demon"], $feature);
-	//$gs->updatecp(1, $levelID);
-	//$dis->discordNotifyNew(1, $levelID, 1, 2, 1, 1, $accountID, 1, 0, 0);
+	$gs->updatecp(1, $levelID);
+	$dis->discordNotifyNew(1, $levelID, 1, 2, 1, 1, $accountID, 1, 0, 0);
 	echo 1;
 	//}
 }else if($gs->checkPermission($accountID, "actionSuggestRating")){

@@ -716,7 +716,7 @@ class mainLib {
 		//medium level not verify coins
 		if($length == 2){ $starCoins = 0; }else{ $starCoins = 1; }
 		*/
-
+		$starCoins = 1;
 		//lets assume the perms check is done properly before
 		$query = "UPDATE levels SET starDemon=:demon, starAuto=:auto, starDifficulty=:diff, starStars=:stars, rateDate=:now, starCoins=:starCoins, starFeatured=:feature, starEpic=:starEpic, cpCount=:cpCount WHERE levelID=:levelID";
 		$query = $db->prepare($query);	
@@ -855,4 +855,43 @@ class mainLib {
 		$query->execute([':id' => $listID]);
 		return $query->fetchColumn();
 	}
+
+	//UPDATE CP V1.3 Optimizing query count and dinamic cp's count per level
+	public function updatecp($idtype, $id){
+		include __DIR__ . "/connection.php";
+		if($idtype == 1){ //id type 1 = levelID 
+			//getting userID from levelID
+			$query = $db->prepare("SELECT userID FROM levels WHERE levelID = :lvlid AND isDeleted = 0");
+			$query->execute([':lvlid' => $id]);
+			if ($query->rowCount() == 0) { return false; }
+			$id = $query->fetchColumn();
+		}
+		//getting cp total count from levels where "cpCount"
+		$query = $db->prepare("SELECT SUM(cpCount) AS cp_count FROM levels WHERE userID = :userID AND starStars != 0");
+		$query->execute([':userID' => $id]);
+		$result = $query->fetchAll();
+		foreach($result as $level){
+			$cpCount = 0 + $level["cp_count"];
+		}
+		if ($cpCount > 0) {
+			//getting gauntlet levels count
+			$query = $db->prepare("SELECT level1, level2, level3, level4, level5 FROM gauntlets");
+			$query->execute();
+			if ($query->rowCount() !== 0) {
+				$levelgauntlet = $query->fetchAll();
+				foreach($levelgauntlet as $gauntlet){
+					for($x = 1; $x < 6; $x++){
+						$query = $db->prepare("SELECT count(*) FROM levels WHERE userID = :userID AND levelID = :levelIDgauntlet");
+						$query->execute([':userID' => $userID, ':levelIDgauntlet' => $gauntlet["level".$x]]);
+						$cpGain = $query->fetchColumn();
+						$cpCount = $cpCount + $cpGain;
+					}
+				}
+			} 
+		}
+		//inserting cp value
+		$query = $db->prepare("UPDATE users SET creatorPoints = :creatorpoints WHERE userID=:userID");
+		$query->execute([':userID' => $id, ':creatorpoints' => $cpCount]);
+		return $cpCount;
+  	}
 }

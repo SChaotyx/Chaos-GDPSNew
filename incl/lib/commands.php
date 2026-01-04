@@ -17,21 +17,42 @@ class Commands {
 		include dirname(__FILE__)."/../lib/connection.php";
 		require_once "../lib/exploitPatch.php";
 		require_once "../lib/mainLib.php";
+		require_once dirname(__FILE__)."/../discord/discordLib.php";
 		$gs = new mainLib();
+		$dis = new discordLib();
+
 		$commentarray = explode(' ', $comment);
 		$uploadDate = time();
 		//LEVELINFO
-		$query2 = $db->prepare("SELECT extID FROM levels WHERE levelID = :id");
-		$query2->execute([':id' => $levelID]);
-		$targetExtID = $query2->fetchColumn();
+		//$query2 = $db->prepare("SELECT extID FROM levels WHERE levelID = :id");
+		//$query2->execute([':id' => $levelID]);
+		//$targetExtID = $query2->fetchColumn();
+
+		//LEVELINFO
+		$query = $db->prepare("SELECT userID, extID, starStars, rateDate, levelLength, original FROM levels WHERE levelID = :levelID");
+		$query->execute([':levelID' => $levelID]);
+		$result = $query->fetchAll();
+		if ($query->rowCount() == 0) { return false; }
+		foreach($result as $lvl){
+			$lvlUserID = $lvl["userID"];
+			$lvlExtID = $lvl["extID"];
+			$targetExtID = $lvl["extID"];
+			$lvlstars = $lvl["starStars"];
+			$lvlLength = $lvl["levelLength"];
+			$lvlRateDate = $lvl["rateDate"];
+			$lvlOriginal = $lvl["original"];
+			$timerated = time() - $lvlRateDate;
+			if($lvlRateDate == 0){ $timerated = 0;}
+		}
+
 		//ADMIN COMMANDS
 		if(substr($comment,0,7) == '!unrate' AND $gs->checkPermission($accountID, "commandRate")){
 			$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0', cpCount='0' WHERE levelID=:levelID");
 			$query->execute([':levelID' => $levelID]);
-			//$gs->updatecp(0, $lvlUserID);
+			$gs->updatecp(0, $lvlUserID);
 			//$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('16', :value, :levelID, :timestamp, :id)");
 			//$query->execute([':value' => "0", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
-			//$dis->discordNotifyNew(1, $levelID, 1, 2, 3, 3, $accountID, 1, 0, 0);
+			$dis->discordNotifyNew(1, $levelID, 1, 2, 3, 3, $accountID, 1, 0, 0);
 			return true;
 		}
 		/*
