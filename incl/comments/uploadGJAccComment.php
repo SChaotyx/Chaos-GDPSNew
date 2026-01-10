@@ -15,7 +15,7 @@ $uploadDate = time();
 //usercheck
 if($accountID != "" AND $comment != ""){
 	$decodecomment = base64_decode($comment);
-	if(Commands::doProfileCommands($accountID, $decodecomment)){
+	if(Commands::doProfileCommands($accountID, $userID, $decodecomment)){
 		exit("-1");
 	}
 	$query = $db->prepare("INSERT INTO acccomments (userName, comment, userID, timeStamp)
