@@ -791,6 +791,12 @@ class discordLib {
 		if($epic == 1){
 			$rateimg = "rateepic";
 		}
+		if($epic == 2){
+			$rateimg = "ratelegendary";
+		}
+		if($epic == 3){
+			$rateimg = "ratemythic";
+		}
 		//DIFF CHECK
 		switch($difficulty){
 			case 0: $diffimg = "diff0"; // NA
