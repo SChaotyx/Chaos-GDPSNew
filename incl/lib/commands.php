@@ -106,16 +106,15 @@ class Commands {
 				return true;
 			}
 
-			//SET LEVEL CP COUNT
-			if(substr($comment,0,3) == '!cp'){
-				$cpCount = $commentarray[1];
-				if(!is_numeric($cpCount)){ return false; }
-				//if(empty($cpCount)){ return false; }
-				$query = $db->prepare("UPDATE levels SET cpCount = :cpValue WHERE levelID=:levelID");
-				$query->execute([':cpValue' => $cpCount, ':levelID' => $levelID]);
-				$gs->updatecp(0, $lvlUserID);
-				return true;
-			}
+			//SET LEVEL CP COUNT - Disabled: CP is now calculated dynamically from starFeatured and starEpic
+			//if(substr($comment,0,3) == '!cp'){
+			//	$cpCount = $commentarray[1];
+			//	if(!is_numeric($cpCount)){ return false; }
+			//	$query = $db->prepare("UPDATE levels SET cpCount = :cpValue WHERE levelID=:levelID");
+			//	$query->execute([':cpValue' => $cpCount, ':levelID' => $levelID]);
+			//	$gs->updatecp(0, $lvlUserID);
+			//	return true;
+			//}
 		}
 
 		//----------------
@@ -179,7 +178,7 @@ class Commands {
 		if($gs->checkPermission($accountID, "headTools")){
 				//unrate level
 				if(substr($comment,0,7) == '!unrate'){
-					$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0', cpCount='0' WHERE levelID=:levelID");
+					$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0' WHERE levelID=:levelID");
 					$query->execute([':levelID' => $levelID]);
 					$gs->updatecp(0, $lvlUserID);
 					$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('16', :value, :levelID, :timestamp, :id)");
@@ -191,9 +190,8 @@ class Commands {
 				if($lvlstars > 0 AND $lvlLength > 1 AND $timerated < 86400 OR $gs->checkPermission($accountID, "adminTools")){
 					//feature command
 					if(substr($comment,0,8) == '!feature' OR substr($comment,0,5) == '!feat'){
-						if($lvlLength == 2 OR $lvlOriginal == 1){ $cpCount = 1; }else{ $cpCount = 2; }
-						$query = $db->prepare("UPDATE levels SET starFeatured='1', cpCount=:cpCount WHERE levelID=:levelID");
-						$query->execute([':levelID' => $levelID, ':cpCount' => $cpCount]);
+						$query = $db->prepare("UPDATE levels SET starFeatured='1' WHERE levelID=:levelID");
+						$query->execute([':levelID' => $levelID]);
 						$gs->updatecp(0, $lvlUserID);
 						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('2', :value, :levelID, :timestamp, :id)");
 						$query->execute([':value' => "1", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
@@ -201,7 +199,7 @@ class Commands {
 						return true;
 					}
 					if(substr($comment,0,8) == '!unfeat'){
-						$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', cpCount='1' WHERE levelID=:levelID");
+						$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0' WHERE levelID=:levelID");
 						$query->execute([':levelID' => $levelID]);
 						$gs->updatecp(0, $lvlUserID);
 						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('2', :value, :levelID, :timestamp, :id)");
@@ -211,9 +209,8 @@ class Commands {
 					}
 					//epic command
 					if(substr($comment,0,5) == '!epic'){
-						if($lvlLength == 2 OR $lvlOriginal == 1){ $cpCount = 1; }else{ $cpCount = 3; }
-						$query = $db->prepare("UPDATE levels SET starEpic='1', starFeatured='1', cpCount=:cpCount WHERE levelID=:levelID");
-						$query->execute([':levelID' => $levelID, ':cpCount' => $cpCount]);
+						$query = $db->prepare("UPDATE levels SET starEpic='1', starFeatured='1' WHERE levelID=:levelID");
+						$query->execute([':levelID' => $levelID]);
 						$gs->updatecp(0, $lvlUserID);
 						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('4', :value, :levelID, :timestamp, :id)");
 						$query->execute([':value' => "1", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
@@ -221,13 +218,32 @@ class Commands {
 						return true;
 					}
 					if(substr($comment,0,7) == '!unepic'){
-						if($lvlLength == 2 OR $lvlOriginal == 1){ $cpCount = 1; }else{ $cpCount = 2; }
-						$query = $db->prepare("UPDATE levels SET starEpic='0', cpCount=:cpCount WHERE levelID=:levelID");
-						$query->execute([':levelID' => $levelID, ':cpCount' => $cpCount]);
+						$query = $db->prepare("UPDATE levels SET starEpic='0' WHERE levelID=:levelID");
+						$query->execute([':levelID' => $levelID]);
 						$gs->updatecp(0, $lvlUserID);
 						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('4', :value, :levelID, :timestamp, :id)");
 						$query->execute([':value' => "0", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
 						$dis->discordNotifyNew(1, $levelID, 1, 2, 8, 4, $accountID, 1, 0, 0);
+						return true;
+					}
+					//legendary command
+					if(substr($comment,0,10) == '!legendary'){
+						$query = $db->prepare("UPDATE levels SET starEpic='2', starFeatured='1' WHERE levelID=:levelID");
+						$query->execute([':levelID' => $levelID]);
+						$gs->updatecp(0, $lvlUserID);
+						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('4', :value, :levelID, :timestamp, :id)");
+						$query->execute([':value' => "3", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
+						$dis->discordNotifyNew(1, $levelID, 1, 2, 28, 1, $accountID, 1, 0, 0);
+						return true;
+					}
+					//mythic command
+					if(substr($comment,0,7) == '!mythic'){
+						$query = $db->prepare("UPDATE levels SET starEpic='3', starFeatured='1' WHERE levelID=:levelID");
+						$query->execute([':levelID' => $levelID]);
+						$gs->updatecp(0, $lvlUserID);
+						$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('4', :value, :levelID, :timestamp, :id)");
+						$query->execute([':value' => "4", ':timestamp' => $uploadDate, ':id' => $accountID, ':levelID' => $levelID]);
+						$dis->discordNotifyNew(1, $levelID, 1, 2, 29, 1, $accountID, 1, 0, 0);
 						return true;
 					}
 					//verify coins command
@@ -339,9 +355,10 @@ class Commands {
 		//----------------
 		//----------------
 		if($gs->checkPermission($accountID, "adminTools")){
-			$targetUser = $commentarray[1];
-			$targetRank = $commentarray[2];
+			
 			if(substr($command, 0, 8) == '!setrank'){
+				$targetUser = $commentarray[1];
+				$targetRank = $commentarray[2];
 				$query = $db->prepare("SELECT accountID FROM accounts WHERE userName = :commentarray OR accountID = :commentarray LIMIT 1");
 				$query->execute([':commentarray' => $targetUser]);
 				if($query->rowCount() == 0){
@@ -386,6 +403,39 @@ class Commands {
 				}
 				return true;
 			}
+			
+			//updatecpall command - Admin only: updates CP for all users
+			if(substr($command, 0, 12) == '!updatecpall'){
+				//Execute update in background to avoid timeout
+				if(function_exists("set_time_limit")) set_time_limit(0);
+				
+				$result = $gs->updateAllCPs();
+				
+				//Send Discord notification
+				$dis->notifyUpdateCPAll($result);
+				
+				return true;
+			}
+		}
+		
+		//----------------
+		//----------------
+		//USER COMMANDS (Own profile)
+		//----------------
+		//----------------
+		//updatecp command - Users can update their own CP
+		if(substr($command, 0, 9) == '!updatecp'){
+			//Get userID from accountID
+			$query = $db->prepare("SELECT userID FROM users WHERE extID = :accountID LIMIT 1");
+			$query->execute([':accountID' => $accountID]);
+			if($query->rowCount() == 0){
+				return false;
+			}
+			$targetUserID = $query->fetchColumn();
+			
+			//Update CP for the user
+			$gs->updatecp(0, $targetUserID);
+			return true;
 		}
 	}
 

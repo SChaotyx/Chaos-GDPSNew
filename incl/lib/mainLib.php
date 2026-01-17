@@ -681,27 +681,22 @@ class mainLib {
 			case 0: //starRate
 				$feat = 0;
 				$epic = 0;
-				$cpCount = 1;
 				break;
 			case 1: //feature
 				$feat = 1;
 				$epic = 0;
-				$cpCount = 2;
 				break;
 			case 2: //epic
 				$feat = 1;
 				$epic = 1;
-				$cpCount = 3;
 				break;
 			case 3: //legendary
 				$feat = 1;
 				$epic = 2;
-				$cpCount = 4;
 				break;
 			case 4: //mythic
 				$feat = 1;
 				$epic = 3;
-				$cpCount = 5;
 				break;
 		}
 
@@ -718,9 +713,9 @@ class mainLib {
 		*/
 		$starCoins = 1;
 		//lets assume the perms check is done properly before
-		$query = "UPDATE levels SET starDemon=:demon, starAuto=:auto, starDifficulty=:diff, starStars=:stars, rateDate=:now, starCoins=:starCoins, starFeatured=:feature, starEpic=:starEpic, cpCount=:cpCount WHERE levelID=:levelID";
+		$query = "UPDATE levels SET starDemon=:demon, starAuto=:auto, starDifficulty=:diff, starStars=:stars, rateDate=:now, starCoins=:starCoins, starFeatured=:feature, starEpic=:starEpic WHERE levelID=:levelID";
 		$query = $db->prepare($query);	
-		$query->execute([':demon' => $demon, ':auto' => $auto, ':diff' => $difficulty, ':stars' => $stars, ':levelID'=>$levelID, ':now' =>$rateDate, ':feature'=>$feat, 'starEpic'=>$epic, ':cpCount'=> $cpCount, ':starCoins'=> $starCoins]);
+		$query->execute([':demon' => $demon, ':auto' => $auto, ':diff' => $difficulty, ':stars' => $stars, ':levelID'=>$levelID, ':now' =>$rateDate, ':feature'=>$feat, 'starEpic'=>$epic, ':starCoins'=> $starCoins]);
 		//check mod action
 		/*
 		$query = $db->prepare("SELECT count(*) FROM modactions WHERE type=:type AND value3=:itemID AND account=:account");
@@ -856,7 +851,28 @@ class mainLib {
 		return $query->fetchColumn();
 	}
 
-	//UPDATE CP V1.3 Optimizing query count and dinamic cp's count per level
+	//Calculate CP count for a single level based on starFeatured and starEpic
+	public function calculateLevelCP($starFeatured, $starEpic){
+		$feat = $starFeatured;
+		$epic = $starEpic;
+		
+		if($feat == 0 && $epic == 0){
+			return 1; //starRate only
+		} elseif($feat == 1 && $epic == 0){
+			return 2; //featured
+		} elseif($feat == 1 && $epic == 1){
+			return 3; //epic
+		} elseif($feat == 1 && $epic == 2){
+			return 4; //legendary
+		} elseif($feat == 1 && $epic == 3){
+			return 5; //mythic
+		} else {
+			//fallback: if has stars but unknown feature status, count as 1
+			return 1;
+		}
+	}
+	
+	//UPDATE CP V1.4
 	public function updatecp($idtype, $id){
 		include __DIR__ . "/connection.php";
 		if($idtype == 1){ //id type 1 = levelID 
@@ -866,13 +882,17 @@ class mainLib {
 			if ($query->rowCount() == 0) { return false; }
 			$id = $query->fetchColumn();
 		}
-		//getting cp total count from levels where "cpCount"
-		$query = $db->prepare("SELECT SUM(cpCount) AS cp_count FROM levels WHERE userID = :userID AND starStars != 0");
+		//getting all levels with stars to calculate CP based on starFeatured and starEpic
+		$query = $db->prepare("SELECT starFeatured, starEpic FROM levels WHERE userID = :userID AND starStars != 0");
 		$query->execute([':userID' => $id]);
-		$result = $query->fetchAll();
-		foreach($result as $level){
-			$cpCount = 0 + $level["cp_count"];
+		$levels = $query->fetchAll();
+		$cpCount = 0;
+		
+		//calculating CP based on starFeatured and starEpic values
+		foreach($levels as $level){
+			$cpCount += $this->calculateLevelCP($level["starFeatured"], $level["starEpic"]);
 		}
+		
 		if ($cpCount > 0) {
 			//getting gauntlet levels count
 			$query = $db->prepare("SELECT level1, level2, level3, level4, level5 FROM gauntlets");
@@ -882,7 +902,7 @@ class mainLib {
 				foreach($levelgauntlet as $gauntlet){
 					for($x = 1; $x < 6; $x++){
 						$query = $db->prepare("SELECT count(*) FROM levels WHERE userID = :userID AND levelID = :levelIDgauntlet");
-						$query->execute([':userID' => $userID, ':levelIDgauntlet' => $gauntlet["level".$x]]);
+						$query->execute([':userID' => $id, ':levelIDgauntlet' => $gauntlet["level".$x]]);
 						$cpGain = $query->fetchColumn();
 						$cpCount = $cpCount + $cpGain;
 					}
@@ -893,5 +913,52 @@ class mainLib {
 		$query = $db->prepare("UPDATE users SET creatorPoints = :creatorpoints WHERE userID=:userID");
 		$query->execute([':userID' => $id, ':creatorpoints' => $cpCount]);
 		return $cpCount;
+  	}
+	
+	//Update CP for all users that have levels with stars (optimized)
+	public function updateAllCPs($limit = null, $offset = 0){
+		include __DIR__ . "/connection.php";
+		
+		//Get only userIDs that have levels with stars (optimized query)
+		$queryStr = "SELECT DISTINCT userID FROM levels WHERE starStars != 0 AND isDeleted = 0 ORDER BY userID";
+		if($limit !== null && is_numeric($limit)){
+			$queryStr .= " LIMIT :limit OFFSET :offset";
+		}
+		
+		$query = $db->prepare($queryStr);
+		if($limit !== null && is_numeric($limit)){
+			$query->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+			$query->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+		}
+		$query->execute();
+		$users = $query->fetchAll();
+		
+		$updated = 0;
+		$failed = 0;
+		
+		foreach($users as $user){
+			$result = $this->updatecp(0, $user["userID"]);
+			if($result !== false){
+				$updated++;
+			} else {
+				$failed++;
+			}
+		}
+		
+		//Reset CP to 0 for users without any starred levels
+		$query = $db->prepare("UPDATE users SET creatorPoints = 0 WHERE userID NOT IN (SELECT DISTINCT userID FROM levels WHERE starStars != 0 AND isDeleted = 0)");
+		$query->execute();
+		
+		//Get top users by CP for the notification (max 20)
+		$query = $db->prepare("SELECT userName, creatorPoints FROM users WHERE creatorPoints > 0 ORDER BY creatorPoints DESC LIMIT 20");
+		$query->execute();
+		$topUsers = $query->fetchAll();
+		
+		return array(
+			'updated' => $updated,
+			'failed' => $failed,
+			'total_processed' => count($users),
+			'top_users' => $topUsers
+		);
   	}
 }

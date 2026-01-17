@@ -109,6 +109,73 @@ class discordLib {
 	}
 
 	/**
+	 * Sends a notification when all creator points are updated.
+	 *
+	 * @param array $result The result from updateAllCPs() containing updated, failed, and top_users.
+	 * @return string|false The response from Discord or false on failure.
+	 */
+	public function notifyUpdateCPAll($result){
+		include __DIR__ . "/../../config/discord.php";
+		include __DIR__ . "/../discord/emojis.php";
+		
+		$description = "**All users creatorPoints updated**\n\n";
+		$description .= "**Top Creators:**\n";
+		
+		$trophyMap = [1000 => $icon_top1000, 500 => $icon_top500, 200 => $icon_top200, 100 => $icon_top100, 50 => $icon_top50, 10 => $icon_top10, 1 => $icon_top1];
+		
+		if(!empty($result['top_users']) && is_array($result['top_users'])){
+			$rank = 1;
+			$maxUsers = min(20, count($result['top_users']));
+			for($i = 0; $i < $maxUsers; $i++){
+				$user = $result['top_users'][$i];
+				if(isset($user['userName']) && isset($user['creatorPoints'])){
+					//Get trophy for this rank (same logic as in accEmbedContent)
+					$trophy = $icon_globalrank; //default
+					foreach ($trophyMap as $rankNum => $trophyIcon) {
+						if ($rank < $rankNum + 1) {
+							$trophy = $trophyIcon;
+						}
+					}
+					
+					$description .= "$trophy `$rank.` **" . htmlspecialchars($user['userName'], ENT_QUOTES) . "** - $icon_cp `" . round($user['creatorPoints'], 0) . "`\n";
+					$rank++;
+				}
+			}
+		} else {
+			$description .= "*No users with creator points*";
+		}
+		
+		//Load thumbnail image
+		$thumbnailPath = dirname(__FILE__) . "/../../resources/misc/gdps.png";
+		$imageResources = null;
+		if(file_exists($thumbnailPath)){
+			$thumbnailResource = @imagecreatefrompng($thumbnailPath);
+			if($thumbnailResource !== false){
+				$imageResources = ['thumb.png' => $thumbnailResource];
+			}
+		}
+		
+		$embedData = [
+			"title" => "$icon_cp Creator Points Updated",
+			"description" => $description,
+			"color" => 0x00ff00,
+			"footer" => [
+				"icon_url" => ($iconhost . "misc/gdpsbot.png"),
+				"text" => "Updated: " . (isset($result['updated']) ? $result['updated'] : 0) . " users | Failed: " . (isset($result['failed']) ? $result['failed'] : 0)
+			]
+		];
+		
+		//Add thumbnail if available
+		if($imageResources !== null){
+			$embedData["thumbnail"] = ["url" => "attachment://thumb.png"];
+		}
+		
+		$data = ['embed' => $embedData];
+		
+		return $this->discordNotify(1, $data, $imageResources);
+	}
+
+	/**
 	 * Sends a direct message (DM) to a user.
 	 *
 	 * @param string $discordID The user's Discord ID.
@@ -256,6 +323,8 @@ class discordLib {
 			case 25: $title = "$icon_profile Server Stats"; break;
 			case 26: $title = "$icon_brokenmodstar Rank degraded..."; break;
 			case 27: $title = "$icon_succes Your account has been linked!!!"; break;
+			case 28: $title = "$icon_cp Command - Legendary"; break;
+			case 29: $title = "$icon_cp Command - Mythic"; break;
 		}
 	return $title;
 	}
@@ -275,6 +344,7 @@ class discordLib {
 	 */
 	public function embedContent($id, $title, $thumbnailResource, $color, $footicon, $foottext, $levelID, $stars){
 		include __DIR__ . "/../lib/connection.php";
+		require_once __DIR__ . "/../lib/mainLib.php";
 		include __DIR__ . "/../../config/discord.php";
 		include __DIR__ . "/../discord/emojis.php";
 
@@ -309,7 +379,13 @@ class discordLib {
 		$audioTrack = $level["audioTrack"];
 		$songID = $level["songID"];
 		$extID = $level["extID"];
-		$cpCount = $level["cpCount"];
+		
+		// Calculate CP dynamically using mainLib function (only for levels with stars)
+		$cpCount = 0;
+		if($level["starStars"] != 0){
+			$gs = new mainLib();
+			$cpCount = $gs->calculateLevelCP($level["starFeatured"], $level["starEpic"]);
+		}
 
 		// Song Info
 		$songInfo = "";
