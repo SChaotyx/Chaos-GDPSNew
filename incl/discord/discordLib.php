@@ -1,1411 +1,1181 @@
 <?php
 class discordLib {
-	public function discordNotify($id, $data_string){
+	// -----------------------------------------------------------------------------------------
+	// SECTION: Core Notification Senders
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Sends a pre-formatted embed to a specific Discord channel.
+	 *
+	 * @param int|string $id The channel preset (1 or 2) or a direct channel ID.
+	 * @param array $data The embed data.
+	 * @param GdImage|array|null $imageResources Single or multiple GD image resources to attach.
+	 * @return string|false The response from Discord or false on failure.
+	 */
+	public function discordNotify($id, $data, $imageResources = null){
 		include __DIR__ . "/../../config/discord.php";
-		if($discordEnabled != 1){
-			return false;
+		if ($discordEnabled != 1) return false;
+
+		switch ($id) {
+			case 1: $channelID = $channel1; break;
+			case 2: $channelID = $channel2; break;
+			default: $channelID = $id; break;
 		}
-		switch($id){
-			case 1: $channelID = $channel1; //modactions
-			break;
-			case 2: $channelID = $channel2; //publicactions
-			break;
-			case 3: $channelID = $channel3; //botspam cmd
-			break;
-			default: $channelID = $id;
-			break;
-		}
-		$url = "https://discordapp.com/api/v6/channels/$channelID/messages";
-		//echo $url;
-		$crl = curl_init($url);
-		$headr = array();
-		$headr['User-Agent'] = 'Chaos-Bot, 1.1)';
-		curl_setopt($crl, CURLOPT_CUSTOMREQUEST, "POST");                                                                 
-		curl_setopt($crl, CURLOPT_POSTFIELDS, $data_string);
-		$headr[] = 'Content-type: application/json';
-		$headr[] = 'Authorization: Bot '.$bottoken;
-		curl_setopt($crl, CURLOPT_HTTPHEADER,$headr);
-		curl_setopt($crl, CURLOPT_RETURNTRANSFER, 1); 
-		$response = curl_exec($crl);
-		curl_close($crl);
-	return $response;
+
+		$url = "https://discord.com/api/v10/channels/$channelID/messages";
+		$embedContent = isset($data['embed']) ? $data['embed'] : $data;
+		$jsonPayload = json_encode(["embeds" => [$embedContent]], JSON_UNESCAPED_UNICODE);
+
+		return $this->_sendDiscordRequest($url, $jsonPayload, $imageResources);
 	}
-	public function discordNotifyNew($id, $objectID, $objectType, $embedID, $title, $color, $autorID, $thumbType, $thumbID, $extra){
-		//$dis->discordNotifyNew(channel, objid, objtype, embedid, title, color, autorid, thumbtype, thumbid, extra);
+
+	/**
+	 * A comprehensive notification function for various in-game events.
+	 * It builds the embed and sends it to the appropriate channel.
+	 *
+	 * @param int|string $id Channel preset (1, 2, 3) or a direct channel ID.
+	 * @param int $objectID The ID of the object (level, account).
+	 * @param int $objectType The type of object (1 for level, 2 for account).
+	 * @param int $embedID The style of the embed to use.
+	 * @param int $title The title preset for the embed.
+	 * @param int $color The color preset for the embed.
+	 * @param int $authorID The account ID of the action performer.
+	 * @param int $thumbType The type of thumbnail to generate.
+	 * @param int $thumbID The ID used for thumbnail generation.
+	 * @param mixed $extra Extra data, often used for star values.
+	 * @return string|false The response from Discord or false on failure.
+	 */
+	public function discordNotifyNew($id, $objectID, $objectType, $embedID, $title, $color, $authorID, $thumbType, $thumbID, $extra){
 		include __DIR__ . "/../lib/connection.php";
 		include __DIR__ . "/../../config/discord.php";
-		if($discordEnabled != 1){
+		if ($discordEnabled != 1) {
 			return false;
 		}
-		switch($id){
-			case 1: $channelID = $channel1; //mod actions
-			break;
-			case 2: $channelID = $channel2; //public actions
-			break;
-			case 3: $channelID = $channel3; //botspam cmd
-			break;
-			default: $channelID = $id;
-			break;
+
+		switch ($id) {
+			case 1: $channelID = $channel1; break; // Mod actions
+			case 2: $channelID = $channel2; break; // Public actions
+			case 3: $channelID = $channel3; break; // Botspam commands
+			default: $channelID = $id; break;
 		}
-		if($objectType == 1){
-			switch($thumbType){
-				case 1: $data_string = $this->embedContent($embedID, $this->title($title), $this->diffthumbnail($objectID), $this->embedColor($color), $this->modBadge($autorID), $this->footerText($autorID), $objectID, $extra);
-				break;
-				case 2: $data_string = $this->embedContent($embedID, $this->title($title), $this->thumbnail($thumbID), $this->embedColor($color), $this->modBadge($autorID), $this->footerText($autorID), $objectID, $extra);
-				break;
-				case 3: $data_string = $this->embedContent($embedID, $this->title($title), $this->iconSent($extra, $thumbID), $this->embedColor($color), $this->modBadge($autorID), $this->footerText($autorID), $objectID, $extra);
-				break;
+
+		$imageResources = null;
+		$data_string = "";
+
+		// Handle level-related notifications
+		if ($objectType == 1) {
+			$thumbnailResource = null;
+			switch ($thumbType) {
+				case 1: $thumbnailResource = $this->diffthumbnail($objectID); break;
+				case 2: $thumbnailResource = $this->thumbnail($thumbID); break;
+				case 3: $thumbnailResource = $this->iconSent($extra, $thumbID); break;
 			}
+
+			$result = $this->embedContent($embedID, $this->title($title), $thumbnailResource, $this->embedColor($color), $this->modBadge($authorID), $this->footerText($authorID), $objectID, $extra);
+			$data_string = $result['json'];
+			$imageResources = $result['images'];
+			
 			$query = $db->prepare("SELECT extID FROM levels WHERE levelID = :id");
 			$query->execute([':id' => $objectID]);
 			$objectID = $query->fetchColumn();
 		}
-		if($objectType == 2){
-			$data_string = $this->accEmbedContent($embedID, $this->title($title), $this->iconProfile($objectID), $this->embedColor($color), $this->modBadge($autorID), $this->footerText($autorID), $objectID, $extra);
+
+		// Handle account-related notifications
+		if ($objectType == 2) {
+			$result = $this->accEmbedContent($embedID, $this->title($title), $this->iconProfile($objectID), $this->embedColor($color), $this->modBadge($authorID), $this->footerText($authorID), $objectID, $extra);
+			$data_string = $result['json'];
+			$imageResources = $result['images'];
 		}
-		//DM NOTIFY
+
+		// DM Notification Logic
 		$query = $db->prepare("SELECT discordID, discordLinkReq FROM accounts WHERE accountID = :id");
 		$query->execute([':id' => $objectID]);
-		$result = $query->fetchAll();
-		foreach($result as &$discordData){
-		$discordID = $discordData["discordID"];
-		$discordReq = $discordData["discordLinkReq"];
-		}
-		if($discordReq == 1){
-			switch($title){
-				case 1:
-				case 2:
-				case 3:
-				case 4:
-				case 5:
-				case 6:
-				case 7:
-				case 8:
-				case 9:
-				case 10:
-				case 11:
-				case 12:
-				case 16:
-				case 17:
-				case 26:
-				case 27:
-				$this->discordDMNotify($discordID, $data_string); 
-				break;
+		$discordData = $query->fetch();
+
+		if ($discordData && $discordData["discordLinkReq"] == 1) {
+			// List of titles that should trigger a DM
+			$dmTriggerTitles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17, 26, 27];
+			if (in_array($title, $dmTriggerTitles)) {
+				$this->discordDMNotify($discordData["discordID"], $data_string, $imageResources);
 			}
 		}
-		$url = "https://discordapp.com/api/v6/channels/$channelID/messages";
-		//echo $url;
-		$crl = curl_init($url);
-		$headr = array();
-		$headr['User-Agent'] = 'Chaos-Bot, 1.1)';
-		curl_setopt($crl, CURLOPT_CUSTOMREQUEST, "POST");                                                                 
-		curl_setopt($crl, CURLOPT_POSTFIELDS, $data_string);
-		$headr[] = 'Content-type: application/json';
-		$headr[] = 'Authorization: Bot '.$bottoken;
-		curl_setopt($crl, CURLOPT_HTTPHEADER,$headr);
-		curl_setopt($crl, CURLOPT_RETURNTRANSFER, 1); 
-		$response = curl_exec($crl);
-		curl_close($crl);
-		return $response;
+
+		$url = "https://discord.com/api/v10/channels/$channelID/messages";
+		$dataArray = json_decode($data_string, true);
+		$embedContent = isset($dataArray['embed']) ? $dataArray['embed'] : $dataArray;
+		$jsonPayload = json_encode(["embeds" => [$embedContent]], JSON_UNESCAPED_UNICODE);
+
+		return $this->_sendDiscordRequest($url, $jsonPayload, $imageResources);
 	}
-	public function discordDMNotify($discordID, $data_string){
-		include __DIR__ . "/../lib/connection.php";
+
+	/**
+	 * Sends a direct message (DM) to a user.
+	 *
+	 * @param string $discordID The user's Discord ID.
+	 * @param string $data_string The JSON string of the message payload.
+	 * @param array|null $imageResources Images to attach.
+	 * @return string|false The response from Discord or false on failure.
+	 */
+	public function discordDMNotify($discordID, $data_string, $imageResources = null){
 		include __DIR__ . "/../../config/discord.php";
-		if($discordEnabled != 1){
-			return false;
-		}
-		//FIND USER CHANNEL
-		$data = array("recipient_id" => $discordID);                                                                    
-		$data_string2 = json_encode($data);
-		$url = "https://discordapp.com/api/v6/users/@me/channels";
-		$crl = curl_init($url);
-		$headr = array();
-		$headr['User-Agent'] = 'CvoltonGDPS (http://pi.michaelbrabec.cz:9010, 1.0)';
-		curl_setopt($crl, CURLOPT_CUSTOMREQUEST, "POST");                                                                     
-		curl_setopt($crl, CURLOPT_POSTFIELDS, $data_string2);
-		$headr[] = 'Content-type: application/json';
-		$headr[] = 'Authorization: Bot '.$bottoken;
-		curl_setopt($crl, CURLOPT_HTTPHEADER,$headr);
-		curl_setopt($crl, CURLOPT_RETURNTRANSFER, 1); 
-		$response = curl_exec($crl);
-		curl_close($crl);
+		if ($discordEnabled != 1) return false;
+
+		// Create a DM channel with the user
+		$url = "https://discord.com/api/v10/users/@me/channels";
+		$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+		curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(["recipient_id" => $discordID]));
+		curl_setopt($ch, CURLOPT_HTTPHEADER, [
+			'User-Agent: Chaos-Bot (1.1)',
+			'Content-type: application/json',
+			'Authorization: Bot ' . $bottoken
+		]);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		$response = curl_exec($ch);
+		curl_close($ch);
+
 		$responseDecode = json_decode($response, true);
-		//SEND MSG		
-		$discordUserID = $responseDecode["id"];
-		$url = "https://discordapp.com/api/v6/channels/".$discordUserID."/messages";
-		$crl = curl_init($url);
-		$headr = array();
-		$headr['User-Agent'] = 'CvoltonGDPS (http://pi.michaelbrabec.cz:9010, 1.0)';
-		curl_setopt($crl, CURLOPT_CUSTOMREQUEST, "POST");                                                                     
-		curl_setopt($crl, CURLOPT_POSTFIELDS, $data_string);
-		$headr[] = 'Content-type: application/json';
-		$headr[] = 'Authorization: Bot '.$bottoken;
-		curl_setopt($crl, CURLOPT_HTTPHEADER,$headr);
-		curl_setopt($crl, CURLOPT_RETURNTRANSFER, 1); 
-		$response = curl_exec($crl);
-		curl_close($crl);
-		return $response;	
+		if (!isset($responseDecode["id"])) return false;
+
+		// Send the message to the created DM channel
+		$dmChannelID = $responseDecode["id"];
+		$url = "https://discord.com/api/v10/channels/$dmChannelID/messages";
+		$dataArray = json_decode($data_string, true);
+		$embedContent = isset($dataArray['embed']) ? $dataArray['embed'] : $dataArray;
+		$jsonPayload = json_encode(["embeds" => [$embedContent]], JSON_UNESCAPED_UNICODE);
+
+		return $this->_sendDiscordRequest($url, $jsonPayload, $imageResources);
 	}
+
+	/**
+	 * Handles public action notifications (e.g., level uploads, stats updates).
+	 *
+	 * @param int $objectType The type of object (0 for level, 1 for profile).
+	 * @param array $objData The data associated with the object.
+	 * @param int $action The action being performed.
+	 */
 	public function publicAction($objectType, $objData, $action){
-		//objectID 0 = level, 1 = profile
 		include __DIR__ . "/../../config/discord.php";
 		include __DIR__ . "/../discord/emojis.php";
-		//
-		//LEVELS
-		//
-		if($objectType == 0){
+
+		// --- Levels Section ---
+		if ($objectType == 0) {
 			$levelName = $objData["levelName"];
 			$userName = $objData["userName"];
 			$original = $objData["original"];
-			$objects = $objData["objects"];
-			if($original > 0){ $copy = $icon_copy; }else{ $copy = ""; }
-			$desc = "$icon_play **__".$levelName."__** by $userName $copy";
-			$levelInfo = "levelID: ".$objData["levelID"];
-			switch($action){
-				case 1: $action = "$icon_info New recent level uploaded!!!";
-				break;
-				case 2: $action = "$icon_info Level Updated!!!";
-				break;
+
+			$copy = ($original > 0) ? $icon_copy : "";
+			$desc = "$icon_play **__" . $levelName . "__** by $userName $copy";
+			$levelInfo = "levelID: " . $objData["levelID"];
+
+			switch ($action) {
+				case 1: $actionTitle = "$icon_info New recent level uploaded!!!"; break;
+				case 2: $actionTitle = "$icon_info Level Updated!!!"; break;
+				default: $actionTitle = "$icon_info Level Activity"; break;
 			}
-			$data = array(
-				'embed'=> [
-					"title"=> $action,
-					"description"=> $desc,
-					"footer"=> ["icon_url"=> ($iconhost."misc/gdpsbot.png"), "text"=> $levelInfo],
-				]);
-			$data_string = json_encode($data);
-			$this->discordNotify(2, $data_string);
+
+			$data = ['embed' => [
+				"title" => $actionTitle,
+				"description" => $desc,
+				"footer" => ["icon_url" => ($iconhost . "misc/gdpsbot.png"), "text" => $levelInfo],
+			]];
+			$this->discordNotify(2, $data);
 		}
-		//
-		//PROFILES
-		//
-		if($objectType == 1){
-			$user = ":chart_with_upwards_trend: __**".$objData["userName"]."'s**__ Stats";
+
+		// --- Profiles Section ---
+		if ($objectType == 1) {
+			$userTitle = ":chart_with_upwards_trend: __**" . $objData["userName"] . "'s**__ Stats";
 
 			$stats = "$icon_star `".$this->charCount($objData["stars"])."` ─> `".$this->charCount2($this->ispositive($objData["starsDiff"]).$objData["starsDiff"])."`\n".
-				     "$icon_diamond `".$this->charCount($objData["diamonds"])."` ─> `".$this->charCount2($this->ispositive($objData["diamondsDiff"]).$objData["diamondsDiff"])."`\n".
-				  	 "$icon_secretcoin `".$this->charCount($objData["coins"])."` ─> `".$this->charCount2($this->ispositive($objData["coinsDiff"]).$objData["coinsDiff"])."`\n".
-				  	 "$icon_verifycoins `".$this->charCount($objData["uc"])."` ─> `".$this->charCount2($this->ispositive($objData["ucDiff"]).$objData["ucDiff"])."`\n".
+					 "$icon_diamond `".$this->charCount($objData["diamonds"])."` ─> `".$this->charCount2($this->ispositive($objData["diamondsDiff"]).$objData["diamondsDiff"])."`\n".
+					 "$icon_secretcoin `".$this->charCount($objData["coins"])."` ─> `".$this->charCount2($this->ispositive($objData["coinsDiff"]).$objData["coinsDiff"])."`\n".
+					 "$icon_verifycoins `".$this->charCount($objData["uc"])."` ─> `".$this->charCount2($this->ispositive($objData["ucDiff"]).$objData["ucDiff"])."`\n".
 					 "$icon_demon `".$this->charCount($objData["demons"])."` ─> `".$this->charCount2($this->ispositive($objData["demonsDiff"]).$objData["demonsDiff"])."`";
-					   
-			$statsDiff = "$icon_star `".$this->charCount($objData["starsDiff"])."`\n$icon_diamond `".$this->charCount($objData["diamondsDiff"])."`\n$icon_secretcoin `".$this->charCount($objData["coinsDiff"])."`\n$icon_verifycoins `".$this->charCount($objData["ucDiff"])."`\n$icon_demon `".$this->charCount($objData["demonsDiff"])."`";
-			$userInfo = "userID: ".$objData["userID"];
+					 
+			$userInfo = "userID: " . $objData["userID"];
 
-			//$mainIcon = $this->iconProfile($objData["extID"]);
+			// 1. Get the thumbnail (current individual icon)
+			$thumbnailIcon = $this->iconProfile($objData["extID"]);
 
-			$data = array(
-				'embed'=> [
-					"title"=> "$icon_info User Stats Updated!!!",
-					"description" => $user."\n"."\n".$stats,
-					//"fields" => [
-					//	["name" => "────────────", "value" => $stats],
-					//],
-					"footer"=> ["icon_url"=> ($iconhost."misc/gdpsbot.png"), "text"=> $userInfo],
-					//"thumbnail"=> ["url"=> ($iconhost.$mainIcon)],
-				]);
-			$data_string = json_encode($data);
-			$this->discordNotify(2, $data_string);
+			// 2. Get the icon set (horizontal strip of other icons)
+			$imageSet = $this->iconSetProfile($objData["extID"]);
+
+			$data = [
+				'embed' => [
+					"title" => "$icon_info User Stats Updated!!!",
+					"description" => $userTitle . "\n\n" . $stats,
+					"footer" => ["icon_url" => ($iconhost . "misc/gdpsbot.png"), "text" => $userInfo],
+					"thumbnail" => ["url" => "attachment://thumb.png"], // Current icon
+					"image" => ["url" => "attachment://icon.png"]      // Icon set below
+				]
+			];
+
+			// Send notification with two attachments
+			$this->discordNotify(2, $data, ['icon.png' => $imageSet, 'thumb.png' => $thumbnailIcon]);
 		}
 	}
+
+	// -----------------------------------------------------------------------------------------
+	// SECTION: Embed Content Builders
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Returns a preset title string.
+	 * @param int $id The ID of the title.
+	 * @return string The formatted title.
+	 */
 	public function title($id){
 		include __DIR__ . "/../discord/emojis.php";
+		$title = "";
 		switch($id){
-		case 1: $title = "$icon_star New Rated Level!!!";
-			break;
-		case 2: $title = "$icon_approved New Approved Level!";
-			break;
-		case 3: $title = "$icon_failed Command - Unrate";
-			break;
-		case 4: $title = "$icon_like Command - Played";
-			break;
-		case 5: $title = "$icon_cp Command - Feature";
-			break;
-		case 6: $title = "$icon_failed Command - Unfeat";
-			break;
-		case 7: $title = "$icon_cp Command - Epic";
-			break;
-		case 8: $title = "$icon_failed Command - Unepic";
-			break;
-		case 9: $title = "$icon_info Command - Verifycoins";
-			break;
-		case 10: $title = "$icon_info Command - Unverifycoins";
-			break;
-		case 11: $title = "$icon_daily Command - Daily";
-			break;
-		case 12: $title = "$icon_weekly Command - Weekly";
-			break;
-		case 13: $title = "$icon_cross Command - Delete";
-			break;
-		case 14: $title = "$icon_info Command - Setacc";
-			break;
-		case 15: $title = "$icon_succes Rated Demon!!!";
-		    break;
-		case 16: $title = "$icon_modstar User Promoted!!!";
-		    break;
-		case 17: $title = "$icon_brokenmodstar User Demoted...";
-		    break;
-		case 18: $title = "$icon_info User Stats Updated!!!";
-			break;
-		case 19: $title = "$icon_info Level Updated!!!";
-			break;
-		case 20: $title = "$icon_info New recent level uploaded!!!";
-			break;
-		case 21: $title = "$icon_search Search result.";
-			break;
-		case 22: $title = "$icon_profile User profile";
-			break;
-		case 23: $title = "$icon_daily Current Daily Level";
-			break;
-		case 24: $title = "$icon_weekly Current Weekly Level";
-			break;
-		case 25: $title = "$icon_profile Server Stats";
-			break;
-		case 26: $title = "$icon_brokenmodstar Rank degraded...";
-			break;
-		case 27: $title = "$icon_succes Your account has been linked!!!";
-		    break;
+			case 1: $title = "$icon_star New Rated Level!!!"; break;
+			case 2: $title = "$icon_approved New Approved Level!"; break;
+			case 3: $title = "$icon_failed Command - Unrate"; break;
+			case 4: $title = "$icon_like Command - Played"; break;
+			case 5: $title = "$icon_cp Command - Feature"; break;
+			case 6: $title = "$icon_failed Command - Unfeat"; break;
+			case 7: $title = "$icon_cp Command - Epic"; break;
+			case 8: $title = "$icon_failed Command - Unepic"; break;
+			case 9: $title = "$icon_info Command - Verifycoins"; break;
+			case 10: $title = "$icon_info Command - Unverifycoins"; break;
+			case 11: $title = "$icon_daily Command - Daily"; break;
+			case 12: $title = "$icon_weekly Command - Weekly"; break;
+			case 13: $title = "$icon_cross Command - Delete"; break;
+			case 14: $title = "$icon_info Command - Setacc"; break;
+			case 15: $title = "$icon_succes Rated Demon!!!"; break;
+			case 16: $title = "$icon_modstar User Promoted!!!"; break;
+			case 17: $title = "$icon_brokenmodstar User Demoted..."; break;
+			case 18: $title = "$icon_info User Stats Updated!!!"; break;
+			case 19: $title = "$icon_info Level Updated!!!"; break;
+			case 20: $title = "$icon_info New recent level uploaded!!!"; break;
+			case 21: $title = "$icon_search Search result."; break;
+			case 22: $title = "$icon_profile User profile"; break;
+			case 23: $title = "$icon_daily Current Daily Level"; break;
+			case 24: $title = "$icon_weekly Current Weekly Level"; break;
+			case 25: $title = "$icon_profile Server Stats"; break;
+			case 26: $title = "$icon_brokenmodstar Rank degraded..."; break;
+			case 27: $title = "$icon_succes Your account has been linked!!!"; break;
 		}
 	return $title;
 	}
-	public function embedContent($id, $title, $thumbnail, $color, $footicon, $foottext, $levelID, $stars){
+
+	/**
+	 * Builds the embed content for a level.
+	 *
+	 * @param int $id The embed style preset.
+	 * @param string $title The embed title.
+	 * @param GdImage|null $thumbnailResource A GD resource for the thumbnail.
+	 * @param string $color The embed color.
+	 * @param string $footicon The footer icon URL part.
+	 * @param string $foottext The footer text.
+	 * @param int $levelID The level ID.
+	 * @param mixed $stars Extra data (e.g., star value).
+	 * @return array An array containing the 'json' payload and 'images' to attach.
+	 */
+	public function embedContent($id, $title, $thumbnailResource, $color, $footicon, $foottext, $levelID, $stars){
 		include __DIR__ . "/../lib/connection.php";
 		include __DIR__ . "/../../config/discord.php";
 		include __DIR__ . "/../discord/emojis.php";
-		//GETTING LEVEL DATA
+
+		$imageResources = null;
+		$thumbnailData = [];
+		if ($thumbnailResource !== null) {
+			$imageResources = ['thumb.png' => $thumbnailResource];
+			$thumbnailData = ["url" => "attachment://thumb.png"];
+		}
+
+		// Get level data
 		$query = $db->prepare("SELECT * FROM levels WHERE levelID = :lvlid");
 		$query->execute([':lvlid' => $levelID]);
-		$result = $query->fetchAll();
-		foreach($result as &$level){
-			$levelName = $level["levelName"];
-			$userName = $level["userName"];		
-			$levelDesc = $level["levelDesc"];
-			$desc = base64_decode($levelDesc);
-			$coins = $level["coins"];
-			$starCoins = $level["starCoins"];
-			$downloads = $level["downloads"];
-			$likes = $level["likes"];		
-			$levelLength = $level["levelLength"];
-			$levelVersion = $level["levelVersion"];
-			$objects = $level["objects"];
-			$requestedStars = $level["requestedStars"];
-			$original = $level["original"];
-			$originalReup = $level["originalReup"];
-			$audioTrack = $level["audioTrack"];
-			$songID = $level["songID"];
-			$extID = $level["extID"];
-			$cpCount = $level["cpCount"];
-			if($songID == 0){
-				$songinfo = "";
-				switch($audioTrack){
-					case 0: $oficialsong = "__**Stereo Madness**__ by **ForeverBound**";
-					break;
-					case 1: $oficialsong = "__**Back on Track**__ by **DJVI**";
-					break;
-					case 2: $oficialsong = "__**Polargeist**__ by **Step**";
-					break;
-					case 3: $oficialsong = "__**Dry Out**__ by **DJVI**";
-					break;
-					case 4: $oficialsong = "__**Base after Base**__ by **DJVI**";
-					break;
-					case 5: $oficialsong = "__**Can't Let Go**__ by **DJVI**";
-					break;
-					case 6: $oficialsong = "__**Jumper**__ by **Waterflame**";
-					break;
-					case 7: $oficialsong = "__**Time Machine**__ by **Waterflame**";
-					break;
-					case 8: $oficialsong = "__**Cycles**__ by **DJVI**";
-					break;
-					case 9: $oficialsong = "__**xStep**__ by **DJVI**";
-					break;
-					case 10: $oficialsong = "__**Clutterfunk**__ by **Waterflame**";
-					break;
-					case 11: $oficialsong = "__**Theory of Everything**__ by **DJ Nate**";
-					break;
-					case 12: $oficialsong = "__**Electroman Adventures**__ by **Waterflame**";
-					break;
-					case 13: $oficialsong = "__**Club Step**__ by **DJ Nate**";
-					break;
-					case 14: $oficialsong = "__**Electrodynamix**__ by **DJ Nate**";
-					break;
-					case 15: $oficialsong = "__**Hexagon Force**__ by **Waterflame**";
-					break;
-					case 16: $oficialsong = "__**Blast Processing**__ by **Waterflame**";
-					break;
-					case 17: $oficialsong = "__**Theory of Everything 2**__ by **DJ Nate**";
-					break;
-					case 18: $oficialsong = "__**Geometrical Dominator**__ by **Waterflame**";
-					break;
-					case 19: $oficialsong = "__**Deadlocked**__ by **F-777**";
-					break;
-					case 20: $oficialsong = "__**Fingerbang**__ by **MDK**";
-					break;
+		$level = $query->fetch();
+
+		if (!$level) return ['json' => '{}', 'images' => null];
+
+		$levelName = $level["levelName"];
+		$userName = $level["userName"];
+		$levelDesc = $level["levelDesc"];
+		$desc = base64_decode($levelDesc);
+		$coins = $level["coins"];
+		$starCoins = $level["starCoins"];
+		$downloads = $level["downloads"];
+		$likes = $level["likes"];
+		$levelLength = $level["levelLength"];
+		$levelVersion = $level["levelVersion"];
+		$objects = $level["objects"];
+		$requestedStars = $level["requestedStars"];
+		$original = $level["original"];
+		$originalReup = $level["originalReup"];
+		$audioTrack = $level["audioTrack"];
+		$songID = $level["songID"];
+		$extID = $level["extID"];
+		$cpCount = $level["cpCount"];
+
+		// Song Info
+		$songInfo = "";
+		$songDesc = "";
+		if ($songID == 0) {
+			$officialSongs = [
+				"Stereo Madness by ForeverBound", "Back on Track by DJVI", "Polargeist by Step",
+				"Dry Out by DJVI", "Base after Base by DJVI", "Can't Let Go by DJVI",
+				"Jumper by Waterflame", "Time Machine by Waterflame", "Cycles by DJVI",
+				"xStep by DJVI", "Clutterfunk by Waterflame", "Theory of Everything by DJ Nate",
+				"Electroman Adventures by Waterflame", "Club Step by DJ Nate", "Electrodynamix by DJ Nate",
+				"Hexagon Force by Waterflame", "Blast Processing by Waterflame", "Theory of Everything 2 by DJ Nate",
+				"Geometrical Dominator by Waterflame", "Deadlocked by F-777", "Fingerbang by MDK"
+			];
+			$songDesc = "__**" . ($officialSongs[$audioTrack] ?? 'Unknown Song') . "**__";
+		} else {
+			$query = $db->prepare("SELECT * FROM songs WHERE ID = :id");
+			$query->execute([':id' => $songID]);
+			if ($query->rowCount() > 0) {
+				$song = $query->fetch();
+				$songDesc =  "__" . $song["name"] . "__ by " . $song["authorName"];
+				$songInfo = "SongID: " . $songID . " - Size: " . $song["size"] . "MB";
+				if ($songID < 5000000) {
+					$songInfo .= "\n" . $icon_play . '[Play on Newgrounds](https://www.newgrounds.com/audio/listen/' . $songID . ')';
 				}
-				$songdesc = "$oficialsong";
-			}else{
-				$query = $db->prepare("SELECT ID FROM songs WHERE ID=:ID");
-				$query->execute([':ID' => $songID]);
-				if($query->rowCount() == 0){
-					$songdesc = "*unknown*";
-				}else{
-					$query = $db->prepare("SELECT * FROM songs WHERE ID = :id");
-					$query->execute([':id' => $songID]);
-					$result2 = $query->fetchAll();
-					foreach($result2 as &$song){
-						$songname = $song["name"];
-						$songauthor = $song["authorName"];
-						$songsize = $song["size"];	
-						$songdesc =  "__".$songname."__ by $songauthor";
-						if($songID < 5000000){
-							$downloadmp3 = rawurldecode($song["download"]);
-							$songinfo = 
-								"SongID: $songID - Size: ".$songsize."MB\n".
-								$icon_play.'[Play on Newgrounds](https://www.newgrounds.com/audio/listen/'.$songID.')';
-						}else{
-							$downloadmp3 = $song["download"];
-							$songinfo = 
-								"SongID: $songID - Size: ".$songsize."MB";
-								//$icon_download1.'[Download MP3]('.$downloadmp3.')'
-						}
-					}
-				}
+			} else {
+				$songDesc = "*unknown*";
 			}
-			//EMPTY DESCRIPTION
-			if(empty($levelDesc)){
+		}
+
+		// Handle empty description
+		if (empty($levelDesc)) {
 			$desc = " No description provided ";
-			}
-			//COINS
-		    $coinscount = "None";
-			if($starCoins == 1){
-				switch($coins){
-					case 1: $coinscount = "$icon_verifycoins";
-					break;
-					case 2: $coinscount = "$icon_verifycoins $icon_verifycoins";
-					break;
-					case 3: $coinscount = "$icon_verifycoins $icon_verifycoins $icon_verifycoins";
-					break;
-				}
-			}
-			if($starCoins == 0){
-				switch($coins){
-					case 1: $coinscount = "$icon_unverifycoins";
-					break;
-					case 2: $coinscount = "$icon_unverifycoins $icon_unverifycoins";
-					break;
-					case 3: $coinscount = "$icon_unverifycoins $icon_unverifycoins $icon_unverifycoins";
-					break;
-				}
-			}
-			//LIKE/DISLIKE ICON
-			$likeicon = "$icon_like";
-			if($likes < 0){
-				$likeicon  = "$icon_dislike";
-			}
-			//LEVEL LENGTH
-            switch($levelLength){
-				case 0: $Length = "TINY";
-				break;
-				case 1: $Length = "SHORT";
-				break;
-				case 2: $Length = "MEDIUM";
-				break;
-				case 3: $Length = "LONG";
-				break;
-				case 4: $Length = "XL";
-				break;		
-			}
-			//+40K OBJECTS ICON
-            $overObjects = "";
-			if($objects > 40000){
-			$overObjects = "$icon_objecto";
-			}
-			//COPY LEVEL
-            $copylevel = "";
-            $copylevelc = "";
-			if(!empty($original)){
-			$copylevel = "$icon_copy**Original:** $original";
-			$copylevelc = "$icon_copy";
-			}
-			if($original == 1){
-				$copylevel = "$icon_copy**Original Reupload:** ".$originalReup;
-			}
 		}
-		if($cpCount != 0){
-			$cpCount = $this->charCount($cpCount);
-			$cpCount = "$icon_cp `$cpCount`\n";
-		}else{
-			$cpCount = "";
+
+		// Handle coins
+		$coinsDisplay = "None";
+		if ($coins > 0) {
+			$coinIcon = $starCoins == 1 ? $icon_verifycoins : $icon_unverifycoins;
+			$coinsDisplay = str_repeat("$coinIcon ", $coins);
 		}
-		$downloads = $this->charCount($downloads);
-		$likes = $this->charCount($likes);
-		$Length = $this->charCount($Length);
-		//LEVEL DATA
-		$levelby = "$icon_play __".$levelName."__ by $userName";
+
+		// Set like/dislike icon
+		$likeIcon = ($likes < 0) ? $icon_dislike : $icon_like;
+
+		// Level Length
+		$lengthMap = ["TINY", "SHORT", "MEDIUM", "LONG", "XL"];
+		$lengthText = $lengthMap[$levelLength] ?? "NA";
+
+		// +40K objects icon
+		$overObjectsIcon = ($objects > 40000) ? $icon_objecto : "";
+
+		// Copy level indicator
+		$copyLevelText = "";
+		$copyLevelIcon = "";
+		if (!empty($original)) {
+			$copyLevelText = "$icon_copy**Original:** $original";
+			$copyLevelIcon = $icon_copy;
+		}
+		if ($original == 1) {
+			$copyLevelText = "$icon_copy**Original Reupload:** " . $originalReup;
+		}
+
+		$cpCountStr = ($cpCount != 0) ? "$icon_cp `" . $this->charCount($cpCount) . "`\n" : "";
+
+		// Prepare display strings
+		$levelBy = "$icon_play __" . $levelName . "__ by $userName";
 		$description = "**Description:** $desc";
-		$usercoins = "Coins: $coinscount";
-		$stats = 
-		    "$icon_download2 `‌$downloads` \n $likeicon `$likes` \n $icon_length `$Length`\n".$cpCount.
-		    "───────────────────\n";
-		$songdata = ":musical_note: $songdesc";
-		$extrainfo = 
-		    $songinfo." \n".
-			"───────────────────\n".
-			"**Level ID:** $levelID \n".
-			"**Level Version:** $levelVersion \n".
-			"**Objects count:** $objects $overObjects \n".
-			"**Stars requested:** $requestedStars \n".
-			"$copylevel";
-		$levelbyc = "$icon_play __".$levelName."__ by $userName $copylevelc $overObjects";
-		$songdatac = 
-		    ":musical_note: $songdesc \n".
-		    "LevelID: $levelID";
-		$sentstars = "Sent Stars: $stars $icon_star";
-		$bar = "───────────────────";
-		$statsc = "$icon_download2 `‌$downloads` \n $likeicon `$likes` \n $icon_length `$Length`\n".$cpCount;
-		$dailyinqueque = "New Daily/weekly level queued!";
-		$isout = "$icon_length __Is out:__ $stars";
-		$oldacc = "Old Account: **$userName**";
-		$levelbynew = "$icon_play __".$levelName."__ by $stars $copylevelc $overObjects";
-		$levelInfo = " | Level ID: $levelID";
-		//Build json
+		$userCoinsDisplay = "Coins: $coinsDisplay";
+		$stats = "$icon_download2 `".$this->charCount($downloads)."` \n $likeIcon `".$this->charCount($likes)."` \n $icon_length `".$this->charCount($lengthText)."`\n".$cpCountStr."───────────────────\n";
+		$songDataDisplay = ":musical_note: $songDesc";
+		$extraInfoDisplay = $songInfo . " \n───────────────────\n**Level ID:** $levelID \n**Level Version:** $levelVersion \n**Objects count:** $objects $overObjectsIcon \n**Stars requested:** $requestedStars \n$copyLevelText";
+		$levelByCompact = "$icon_play __" . $levelName . "__ by $userName $copyLevelIcon $overObjectsIcon";
+		$statsCompact = "$icon_download2 `".$this->charCount($downloads)."` \n $likeIcon `".$this->charCount($likes)."` \n $icon_length `".$this->charCount($lengthText)."`\n".$cpCountStr;
+		$levelInfoFooter = " | Level ID: $levelID";
+
+		// Build JSON based on embed type
+		$data = [];
 		switch($id){
-			//FULL EMBED
-			case 1: $data = array(
-				'embed'=> [
+			case 1: // Full embed
+				$data = ['embed'=> [
 					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelby, "value"=> $description],
-						["name"=> $usercoins, "value"=> $stats],
-						["name"=> $songdata, "value"=> $extrainfo]],					
+					"fields"=> [
+						["name"=> $levelBy, "value"=> $description],
+						["name"=> $userCoinsDisplay, "value"=> $stats],
+						["name"=> $songDataDisplay, "value"=> $extraInfoDisplay]],
 					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//COMPACT EMBED
-			case 2: $data = array(
-				'embed'=> [
+					"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+					"thumbnail"=> $thumbnailData,
+				]];
+				break;
+			case 2: // Compact embed
+				$data = ['embed'=> [
 					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelbyc, "value"=> $stats],
-						["name"=> $usercoins, "value"=> $songdata]],
+					"fields"=> [
+						["name"=> $levelByCompact, "value"=> $stats],
+						["name"=> $userCoinsDisplay, "value"=> $songDataDisplay]],
 					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//SENT LEVEL
-			case 3: $data = array(
-				'embed'=> [
+					"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+					"thumbnail"=> $thumbnailData,
+				]];
+				break;
+			case 3: // Sent level
+				$data = ['embed'=> [
 					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelbyc, "value"=> $statsc],
-						["name"=> $sentstars, "value"=> $bar],
-						["name"=> $usercoins, "value"=> $songdata]],
+					"fields"=> [
+						["name"=> $levelByCompact, "value"=> $statsCompact],
+						["name"=> "Sent Stars: $stars $icon_star", "value"=> "───────────────────"],
+						["name"=> $userCoinsDisplay, "value"=> $songDataDisplay]],
 					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//SET NEW DAILY IN QUEQUE
-			case 4: $data = array(
-				'embed'=> [
+					"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+					"thumbnail"=> $thumbnailData,
+				]];
+				break;
+			case 4: // New daily/weekly queued
+				$data = ['embed'=> [
 					"title"=> $title,
-					"description"=> $dailyinqueque,
-				    "fields"=> [
-						["name"=> $levelbyc, "value"=> $stats],
-						["name"=> $usercoins, "value"=> $isout]],
+					"description"=> "New Daily/weekly level queued!",
+					"fields"=> [
+						["name"=> $levelByCompact, "value"=> $stats],
+						["name"=> $userCoinsDisplay, "value"=> "$icon_length __Is out:__ $stars"]],
 					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//COMMAND !SETACC
-			case 5: $data = array(
-				'embed'=> [
+					"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+					"thumbnail"=> $thumbnailData,
+				]];
+				break;
+			case 5: // !setacc command
+				$data = ['embed'=> [
 					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelbynew, "value"=> $stats],
-						["name"=> $usercoins, "value"=> $oldacc]],
+					"fields"=> [
+						["name"=> "$icon_play __".$levelName."__ by $stars $copyLevelIcon $overObjectsIcon", "value"=> $stats],
+						["name"=> $userCoinsDisplay, "value"=> "Old Account: **$userName**"]],
 					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//WITH USER TAG
-			case 6: $data = array(
-				"content"=> $stars,
-				'embed'=> [
-					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelby, "value"=> $description],
-						["name"=> $usercoins, "value"=> $stats],
-						["name"=> $songdata, "value"=> $extrainfo]],					
-					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-			//COMPACT WITH USER TAG
-			case 7: $data = array(
-				"content"=> $stars,
-				'embed'=> [
-					"title"=> $title,
-				    "fields"=> [
-						["name"=> $levelbyc, "value"=> $stats],
-						["name"=> $usercoins, "value"=> $songdata]],
-					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$levelInfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$thumbnail)],
-				]);
-			break;
-		}                                                    
+					"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+					"thumbnail"=> $thumbnailData,
+				]];
+				break;
+			case 6: // Full with user tag
+				$data = [
+					"content"=> $stars,
+					'embed'=> [
+						"title"=> $title,
+						"fields"=> [
+							["name"=> $levelBy, "value"=> $description],
+							["name"=> $userCoinsDisplay, "value"=> $stats],
+							["name"=> $songDataDisplay, "value"=> $extraInfoDisplay]],
+						"color"=> $color,
+						"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+						"thumbnail"=> $thumbnailData,
+					]];
+				break;
+			case 7: // Compact with user tag
+				$data = [
+					"content"=> $stars,
+					'embed'=> [
+						"title"=> $title,
+						"fields"=> [
+							["name"=> $levelByCompact, "value"=> $stats],
+							["name"=> $userCoinsDisplay, "value"=> $songDataDisplay]],
+						"color"=> $color,
+						"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$levelInfoFooter)],
+						"thumbnail"=> $thumbnailData,
+					]];
+				break;
+		}
 		$data_string = json_encode($data);
-		return $data_string;
+		return ['json' => $data_string, 'images' => $imageResources];
 	}
+
+	/**
+	 * Builds the embed content for a user account.
+	 *
+	 * @param int $id The embed style preset.
+	 * @param string $title The embed title.
+	 * @param GdImage|null $thumbnail A GD resource for the thumbnail icon.
+	 * @param string $color The embed color.
+	 * @param string $footicon The footer icon URL part.
+	 * @param string $foottext The footer text.
+	 * @param int $targetAccID The target account ID.
+	 * @param mixed $stars Extra data (often used for tagging users).
+	 * @return array An array containing the 'json' payload and 'images' to attach.
+	 */
 	public function accEmbedContent($id, $title, $thumbnail, $color, $footicon, $foottext, $targetAccID, $stars){
 		include __DIR__ . "/../lib/connection.php";
 		include __DIR__ . "/../../config/discord.php";
 		include __DIR__ . "/../discord/emojis.php";
-		// YOUTUBE URL, TWITTER, TWITCH AND DICORD TAG
+
+		// Get user social links
 		$query = $db->prepare("SELECT youtubeurl, twitter, twitch, discordID, discordLinkReq FROM accounts WHERE accountID = :id");
 		$query->execute([':id' => $targetAccID]);
-		$result = $query->fetchAll();
-		foreach($result as &$userlinks){
-			$yturl = $userlinks["youtubeurl"];
-			$twitter = $userlinks["twitter"];
-			$twitch = $userlinks["twitch"];
-			$discordID = $userlinks["discordID"];
-			$discordLinkReq = $userlinks["discordLinkReq"];
+		$userLinks = $query->fetch();
+
+		$socials = "";
+		if ($userLinks) {
+			$socials .= !empty($userLinks["youtubeurl"]) ? "$icon_youtube [**YouTube**](https://www.youtube.com/channel/".$userLinks["youtubeurl"].")\n" : "";
+			$socials .= !empty($userLinks["twitter"]) ? "$icon_twitter [**Twitter**](https://www.twitter.com/".$userLinks["twitter"].")\n" : "";
+			$socials .= !empty($userLinks["twitch"]) ? "$icon_twitch [**Twitch**](https://www.twitch.tv/".$userLinks["twitch"].")\n" : "";
+			$socials .= ($userLinks["discordLinkReq"] == 1) ? "$icon_discord **<@".$userLinks["discordID"].">**\n" : "";
 		}
-		if(empty($yturl)){ $yturl = ""; }else{ $yturl = "$icon_youtube [**YouTube**](https://www.youtube.com/channel/".$yturl.")\n"; }
-		if(empty($twitter)){ $twitter = ""; }else{ $twitter = "$icon_twitter [**Twitter**](https://www.twitter.com/".$twitter.")\n"; }
-		if(empty($twitch)){ $twitch = ""; }else{ $twitch = "$icon_twitch [**Twitch**](https://www.twitch.tv/".$twitch.")\n"; }
-		if($discordLinkReq == 1){ $discord = "$icon_discord **<@$discordID>**\n"; }
-		//READ TARGET USER STATS
+
+		// Get user stats
 		$query = $db->prepare("SELECT * FROM users WHERE extID = :extID");
 		$query->execute([':extID' => $targetAccID]);
-		//NOT USER PROFILE... (FOR "bot!account" COMMAND)
-		if($query->rowCount() == 0){
-			$nothing = "This account exists but does not have a profile.";
-			$data = array("content"=> $nothing);                                               
-			$data_string = json_encode($data);
-			return $data_string;
-		}
-		$result = $query->fetchAll();
-		foreach($result as &$userstats){
-			$userstars = $userstats["stars"];
-			$userdiamonds = $userstats["diamonds"];
-			$userscoins = $userstats["coins"];
-			$userucoins = $userstats["userCoins"];
-			$userdemons = $userstats["demons"];
-			$usercp = $userstats["creatorPoints"];
-			$userID = $userstats["userID"];
-			$targetUser = $userstats["userName"];
-			//ICON DATA
-			$icontype = $userstats["iconType"];
-			$icon = $userstats["icon"];
-			$color1 = $userstats["color1"];
-			$color2 = $userstats["color2"];
-			$glow = $userstats["accGlow"];
-			$accIcon = $userstats["accIcon"];
-			$accShip = $userstats["accShip"];
-			$accBall = $userstats["accBall"];
-			$accBird = $userstats["accBird"];
-			$accDart = $userstats["accDart"];
-			$accRobot = $userstats["accRobot"];
-			$accSpider = $userstats["accSpider"];
+		$userStats = $query->fetch();
 
+		if (!$userStats) {
+			$data_string = json_encode(["content"=> "This account exists but does not have a profile."]);
+			return ['json' => $data_string, 'images' => null];
 		}
-		//DETECT USER RANK
+
+		// Get user rank
 		$query = $db->prepare("SELECT roleID FROM roleassign WHERE accountID = :id LIMIT 1");
 		$query->execute([':id' => $targetAccID]);
-		if ($query->rowCount() > 0) {
-			$roleID = $query->fetchColumn();
-			}else{
-				$roleID = 0;
-			}
-		switch($roleID){
-			case 0: $rank = "";
-			break;
-			case 1: $rank = "$icon_brokenmodstar **DEMOTED :(**\n";
-			break;
-			case 2: $rank = "$icon_mod **MODERATOR**\n";
-			break;
-			case 3: $rank = "$icon_elder **ELDER MOD**\n";
-			break;
-			case 4: $rank = "$icon_head **HEAD MOD**\n";
-			break;
-			case 5: $rank = "$icon_admin **ADMIN**\n";
-			break;
-			case 6: $rank = "$icon_dev **DEVELOPER**\n";
-			break;
-			case 7: $rank = "$icon_owner **OWNER**\n";
-			break;
-		}
-		//GET GLOBAL RANK PLAYERS
-		if($userstars > 25){
-		$e = "SET @rownum := 0;";
-		$query = $db->prepare($e);
-		$query->execute();
-		$f = "SELECT rank FROM (SELECT @rownum := @rownum + 1 AS rank, extID FROM users WHERE isBanned = '0' AND gameVersion > 19 AND stars > 25 ORDER BY stars DESC) as result WHERE extID=:extid";
-		$query = $db->prepare($f);
-		$query->execute([':extid' => $targetAccID]);
-		$global = $query->fetchColumn();;
-		//TROPHY
-		if($global > 1000){
-			$globaltro = "$icon_globalrank";
-		}
-		if($global < 1001){
-			$globaltro = "$icon_top1000";
-		}
-		if($global < 501){
-			$globaltro = "$icon_top500";
-		}
-		if($global < 201){
-			$globaltro = "$icon_top200";
-		}
-		if($global < 101){
-			$globaltro = "$icon_top100";
-		}
-		if($global < 51){
-			$globaltro = "$icon_top50";
-		}
-		if($global < 11){
-			$globaltro = "$icon_top10";
-		}
-		if($global==1){
-			$globaltro = "$icon_top1";
-		}
-		//PRINT
-		$globalrank = "$globaltro **Global Rank:** $global \n";
-		if(empty($global)){
-			$globalrank = "";
-		}
-		}else{
-			$globalrank = "";
-		}
-		//GET TOP CREATORS
-		if($usercp > 0){
-			$e = "SET @rownum := 0;";
-			$query = $db->prepare($e);
-			$query->execute();
-			$f = "SELECT rank FROM (SELECT @rownum := @rownum + 1 AS rank, extID FROM users WHERE isCreatorBanned = '0' AND gameVersion > 19 AND creatorPoints > 0 ORDER BY creatorPoints DESC) as result WHERE extID=:extid";
-			$query = $db->prepare($f);
+		$roleID = $query->fetchColumn() ?: 0;
+		$rankMap = [
+			1 => "$icon_brokenmodstar **DEMOTED :(**\n",
+			2 => "$icon_mod **MODERATOR**\n",
+			3 => "$icon_head **HEAD MOD**\n",
+			4 => "$icon_elder **ELDER MOD**\n",
+			5 => "$icon_admin **ADMIN**\n",
+		];
+		$rank = $rankMap[$roleID] ?? "";
+
+		// Get global leaderboard rank
+		$globalRank = "";
+		if ($userStats["stars"] > 25) {
+			$db->query("SET @rownum := 0;");
+			$query = $db->prepare("SELECT rank FROM (SELECT @rownum := @rownum + 1 AS rank, extID FROM users WHERE isBanned = '0' AND gameVersion > 19 AND stars > 25 ORDER BY stars DESC) as result WHERE extID=:extid");
 			$query->execute([':extid' => $targetAccID]);
-			$globalc = $query->fetchColumn();
-			$globalcreators = "$icon_creatorrank **Creator Rank:** $globalc \n";
-		if(empty($globalc)){
-			$globalcreators = "";
+			$globalPos = $query->fetchColumn();
+			if ($globalPos) {
+				$trophyMap = [1000 => $icon_top1000, 500 => $icon_top500, 200 => $icon_top200, 100 => $icon_top100, 50 => $icon_top50, 10 => $icon_top10, 1 => $icon_top1];
+				$globalTrophy = $icon_globalrank;
+				foreach ($trophyMap as $rankNum => $trophy) {
+					if ($globalPos < $rankNum + 1) $globalTrophy = $trophy;
+				}
+				$globalRank = "$globalTrophy **Global Rank:** $globalPos \n";
+			}
 		}
-		}else{
-			$globalcreators = "";
+
+		// Get creator leaderboard rank
+		$creatorRank = "";
+		if ($userStats["creatorPoints"] > 0) {
+			$db->query("SET @rownum := 0;");
+			$query = $db->prepare("SELECT rank FROM (SELECT @rownum := @rownum + 1 AS rank, extID FROM users WHERE isCreatorBanned = '0' AND gameVersion > 19 AND creatorPoints > 0 ORDER BY creatorPoints DESC) as result WHERE extID=:extid");
+			$query->execute([':extid' => $targetAccID]);
+			$creatorPos = $query->fetchColumn();
+			if ($creatorPos) {
+				$creatorRank = "$icon_creatorrank **Creator Rank:** $creatorPos \n";
+			}
 		}
-		//userstats char count
-		$userstars = $this->charCount($userstars);
-		$userdiamonds = $this->charCount($userdiamonds);
-		$userscoins = $this->charCount($userscoins);
-		$userucoins = $this->charCount($userucoins);
-		$userdemons = $this->charCount($userdemons);
-		$usercp = $this->charCount($usercp);
-		//GET STRINGS
-		$usertitle = "**:chart_with_upwards_trend: $targetUser's stats**";
-		$userstats = "$icon_star `$userstars` \n $icon_diamond `$userdiamonds` \n $icon_secretcoin `$userscoins` \n $icon_verifycoins `$userucoins` \n $icon_demon `$userdemons` \n $icon_cp `$usercp`";
-		$bar = "───────────────────";
-		$leaderboardinfo = $rank.$globalrank.$globalcreators.$yturl.$twitter.$twitch.$discord;
-		$userinfo = " | UserID: $userID | AccID: $targetAccID";
-		$tag = "<@$stars>, here is the profile of user **$targetUser**:";
-		$msg = "Felicidades tu cuenta ya esta enlazada!!!!";
-		$mainIcon = $this->iconGenerator($icontype, $icon, $color1, $color2, $glow, 0);
-		$iconSet = $this->iconSetProfile($icontype, $icon, $color1, $color2, $glow, $accIcon, $accShip, $accBall, $accBird, $accDart, $accRobot, $accSpider);
-		//BUILD JSON
+
+		// Prepare strings for display
+		$userTitle = "**:chart_with_upwards_trend: " . $userStats["userName"] . "'s stats**";
+		$statsDisplay = "$icon_star `".$this->charCount($userStats["stars"])."` \n $icon_diamond `".$this->charCount($userStats["diamonds"])."` \n $icon_secretcoin `".$this->charCount($userStats["coins"])."` \n $icon_verifycoins `".$this->charCount($userStats["userCoins"])."` \n $icon_demon `".$this->charCount($userStats["demons"])."` \n $icon_cp `".$this->charCount($userStats["creatorPoints"])."`";
+		$leaderboardInfo = $rank . $globalRank . $creatorRank . $socials;
+		$userInfoFooter = " | UserID: " . $userStats["userID"] . " | AccID: $targetAccID";
+
+		// Prepare images for sending
+		$images = [];
+		if ($thumbnail) {
+			$images['thumb.png'] = $thumbnail;
+		}
+		$iconSetResource = $this->iconSetProfile($targetAccID);
+		if ($iconSetResource) {
+			$images['icon.png'] = $iconSetResource;
+		}
+
+		// Build the base embed structure
+		$embedBase = [
+			"title"=> $title,
+			"description"=> $userTitle,
+			"fields"=> [
+				["name"=> "────────────", "value"=> $statsDisplay, "inline"=> true],
+				["name"=> "────────────", "value"=> $leaderboardInfo, "inline"=> true]],
+			"color"=> $color,
+			"footer"=> ["icon_url"=> $footicon, "text"=> ($foottext.$userInfoFooter)]
+		];
+
+		if ($thumbnail) $embedBase["thumbnail"] = ["url"=> "attachment://thumb.png"];
+		if ($iconSetResource) $embedBase["image"] = ["url"=> "attachment://icon.png"];
+
+		// Build final JSON based on embed type
+		$data = [];
 		switch($id){
-			//FULL EMBED
-			case 1: $data = array(
-				'embed'=> [
-					"title"=> $title,
-					"description"=> $usertitle,
-				    "fields"=> [
-						["name"=> "────────────", "value"=> $userstats, "inline"=> true],
-						["name"=> "────────────", "value"=> $leaderboardinfo, "inline"=> true]],					
-					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$userinfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$mainIcon)],
-					"image"=> ["url"=> ($iconhost.$iconSet)],
-				]);
-			break;
-			//FROM BOT TAG
-			case 2: $data = array(
-				"content"=> $tag,
-				'embed'=> [
-					"title"=> $title,
-					"description"=> $usertitle,
-				    "fields"=> [
-						["name"=> "────────────", "value"=> $userstats, "inline"=> true],
-						["name"=> "────────────", "value"=> $leaderboardinfo, "inline"=> true]],					
-					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$userinfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$mainIcon)],
-					"image"=> ["url"=> ($iconhost.$iconSet)],
-				]);
-			break;
-			//MD
-			case 3: $data = array(
-				"content"=> $msg,
-				'embed'=> [
-					"title"=> $title,
-					"description"=> $usertitle,
-				    "fields"=> [
-						["name"=> "────────────", "value"=> $userstats, "inline"=> true],
-						["name"=> "────────────", "value"=> $leaderboardinfo, "inline"=> true]],					
-					"color"=> $color,
-					"footer"=> ["icon_url"=> ($iconhost.$footicon), "text"=> ($foottext.$userinfo)],
-					"thumbnail"=> ["url"=> ($iconhost.$mainIcon)],
-					"image"=> ["url"=> ($iconhost.$iconSet)],
-				]);
-			break;
-		}                                                    
+			case 1: // Full embed
+				$data = ['embed'=> $embedBase];
+				break;
+			case 2: // Tagged by bot
+				$data = ["content"=> "<@$stars>, here is the profile of user **" . $userStats["userName"] . "**:", 'embed'=> $embedBase];
+				break;
+			case 3: // DM notification for linking account
+				$data = ["content"=> "Congratulations, your account has been linked!", 'embed'=> $embedBase];
+				break;
+		}
+		
 		$data_string = json_encode($data);
-		return $data_string;
+		return ['json' => $data_string, 'images' => !empty($images) ? $images : null];
 	}
-	//DIFFTHUMBNAIL WITH IMG GENERATOR
+
+	// -----------------------------------------------------------------------------------------
+	// SECTION: Image Generation
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Generates a difficulty face image resource.
+	 *
+	 * @param int $levelID The ID of the level.
+	 * @return GdImage|false A GD image resource or false on failure.
+	 */
 	public function diffthumbnail($levelID){
 		chdir(dirname(__FILE__));
 		include __DIR__ . "/../lib/connection.php";
-		$query = $db->prepare("SELECT * FROM levels WHERE levelID = :lvlid");
+		$query = $db->prepare("SELECT starStars, starFeatured, starEpic, starDemonDiff, starDifficulty, starAuto, starDemon FROM levels WHERE levelID = :lvlid");
 		$query->execute([':lvlid' => $levelID]);
-		$result = $query->fetchAll();
-		foreach($result as &$level){
-			$stars = $level["starStars"];
-			$feature = $level["starFeatured"];
-			$epic = $level["starEpic"];
-			$demondiff = $level["starDemonDiff"];
-			$difficulty = $level["starDifficulty"];
-			$diffauto = $level["starAuto"];
-			$diffdemon = $level["starDemon"];
+		$level = $query->fetch();
+		if (!$level) return false;
+
+		// Determine rating flair (featured, epic, etc.)
+		$rateImage = "ratena";
+		if ($level["starFeatured"] == 1) $rateImage = "ratefeat";
+		if ($level["starEpic"] == 1) $rateImage = "rateepic";
+		if ($level["starEpic"] == 2) $rateImage = "ratelegendary";
+		if ($level["starEpic"] == 3) $rateImage = "ratemythic";
+
+		// Determine difficulty face
+		$diffImage = "diff" . $level["starDifficulty"];
+		if ($level["starAuto"] == 1) $diffImage = "auto";
+		if ($level["starDemon"] == 1) {
+			$demonMap = [0 => "demon0", 3 => "demon3", 4 => "demon4", 5 => "demon5", 6 => "demon6"];
+			$diffImage = $demonMap[$level["starDemonDiff"]] ?? 'demon0';
 		}
-		//RATE CHECK
-		$rateimg = "ratena";
-		if($feature == 1){
-			$rateimg = "ratefeat";
+
+		// Determine star value image
+		$starImage = "str" . $level["starStars"];
+		
+		// Generate filename for caching
+		$filename = "../../resources/difficulty/{$rateImage}{$diffImage}{$starImage}.png";
+		if (file_exists($filename)) {
+			return imagecreatefrompng($filename);
+		} else {
+			// Create image since it doesn't exist in cache
+			$rateResource = imagecreatefrompng("resource/$rateImage.png");
+			$diffResource = imagecreatefrompng("resource/$diffImage.png");
+			$starResource = imagecreatefrompng("resource/$starImage.png");
+			imagesavealpha($rateResource, true);
+			$sx = imagesx($rateResource);
+			$sy = imagesy($rateResource);
+			imagecopy($rateResource, $diffResource, 0, 0, 0, 0, $sx, $sy);
+			imagecopy($rateResource, $starResource, 0, 0, 0, 0, $sx, $sy);
+			imagepng($rateResource, $filename);
+			return $rateResource;
 		}
-		if($epic == 1){
-			$rateimg = "rateepic";
+	}
+
+	/**
+	 * Creates an image resource for a "sent" level thumbnail based on stars.
+	 *
+	 * @param int $stars Number of stars.
+	 * @param int $feature Whether the level is featured (1) or just rated (0).
+	 * @return GdImage|null A GD image resource or null if not found.
+	 */
+	public function iconSent($stars, $feature){
+		$prefix = ($feature == 1) ? "feat" : "rate";
+		$starMap = [1=>1, 2=>2, 3=>3, 4=>4, 5=>4, 6=>5, 7=>5, 8=>6, 9=>6, 10=>7];
+		$faceNum = $starMap[$stars] ?? 0;
+		$faceIconPath = "diff/sent/$prefix/$faceNum.png";
+
+		$fullPath = __DIR__ . "/../../resources/" . $faceIconPath;
+		if (file_exists($fullPath)) {
+			return imagecreatefrompng($fullPath);
 		}
-		if($epic == 2){
-			$rateimg = "ratelegendary";
-		}
-		if($epic == 3){
-			$rateimg = "ratemythic";
-		}
-		//DIFF CHECK
-		switch($difficulty){
-			case 0: $diffimg = "diff0"; // NA
-			break;
-			case 10: $diffimg = "diff10"; // EASY
-			break;
-			case 20: $diffimg = "diff20"; // NORMAL
-			break;
-			case 30: $diffimg = "diff30"; // HARD
-			break;
-			case 40: $diffimg = "diff40"; // HARDER
-			break;
-			case 50: $diffimg = "diff50"; // INSANE
-		}
-		if($diffauto == 1){
-			$diffimg = "auto"; //AUTO
-		}
-		if($diffdemon == 1){
-			switch($demondiff){
-				case 0: $diffimg = "demon0"; //HARD DEMON
-				break;
-				case 3: $diffimg = "demon3"; //EASY DEMON
-				break;
-				case 4: $diffimg = "demon4"; //MEDIUM DEMON
-				break;
-				case 5: $diffimg = "demon5"; //INSANE DEMON
-				break;
-				case 6: $diffimg = "demon6"; //EXTREME DEMON
-				break;
+		return null;
+	}
+
+	/**
+	 * Returns a generic thumbnail image resource based on an ID.
+	 *
+	 * @param int $id The ID of the thumbnail preset.
+	 * @return GdImage|null A GD image resource or null if not found.
+	 */
+	public function thumbnail($id){
+		$pathMap = [
+			1 => "diff/sent/rate/0.png",    // Unrate
+			2 => "levels/like.png",         // Played
+			3 => "diff/sent/feat/0.png",    // Feature
+			4 => "diff/sent/rate/0.png",    // Unfeat
+			5 => "diff/0.png",              // Epic
+			6 => "diff/sent/feat/0.png",    // Unepic
+			7 => "player/user_coin.png",    // Verify
+			8 => "player/user_coin_unverified.png", // Unverify
+			9 => "misc/daily.png",          // Daily
+			10 => "misc/weekly.png",        // Weekly
+			11 => "buttons/delete.png",     // Delete
+			12 => "buttons/copy_button.png",// Setacc
+			13 => "buttons/user_button.png" // USER
+		];
+		$imagePath = $pathMap[$id] ?? null;
+
+		if ($imagePath !== null) {
+			$fullPath = __DIR__ . "/../../resources/" . $imagePath;
+			if (file_exists($fullPath)) {
+				return imagecreatefrompng($fullPath);
 			}
 		}
-		//STARS CHECK
-		switch($stars){
-			case 0: $str = "str0";
-			break;
-			case 1: $str = "str1";
-			break;
-			case 2: $str = "str2";
-			break;
-			case 3: $str = "str3";
-			break;
-			case 4: $str = "str4";
-			break;
-			case 5: $str = "str5";
-			break;
-			case 6: $str = "str6";
-			break;
-			case 7: $str = "str7";
-			break;
-			case 8: $str = "str8";
-			break;
-			case 9: $str = "str9";
-			break;
-			case 10: $str = "str10";
-			break;
-		}
-		//GENERATE FILENAME
-		$filename = "../../resources/difficulty/".$rateimg.$diffimg.$str.".png";
-		$imgurl = "difficulty/".$rateimg.$diffimg.$str.".png";
-		//CHECK ALREADY EXIST IMG
-		if (file_exists($filename)) {
-			return $imgurl;
-		}else{
-			//CREATE IMAGE
-			$png = imagecreatefrompng("resource/$rateimg.png");
-			$png2 = imagecreatefrompng("resource/$diffimg.png");
-			$png3 = imagecreatefrompng("resource/$str.png");
-			imagesavealpha($png, true);
-			$sizex = imagesx($png);
-			$sizey = imagesy($png);
-			imagecopyresampled( $png, $png2, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-			imagecopyresampled( $png, $png3, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-			imagepng($png, "../../resources/difficulty/".$rateimg.$diffimg.$str.".png");
-			return $imgurl;
-		}
+		return null;
 	}
-	public function iconSent($stars, $feature){
-		if($feature == 0){
-            switch($stars){
-				case 1: $icon_face = "diff/sent/rate/1.png";
-				break;	
-				case 2: $icon_face = "diff/sent/rate/2.png";
-				break;	
-				case 3: $icon_face = "diff/sent/rate/3.png";
-				break;	
-				case 4: $icon_face = "diff/sent/rate/4.png";
-				break;	
-				case 5: $icon_face = "diff/sent/rate/4.png";
-				break;	
-				case 6: $icon_face = "diff/sent/rate/5.png";
-				break;	
-				case 7: $icon_face = "diff/sent/rate/5.png";
-				break;	
-				case 8: $icon_face = "diff/sent/rate/6.png";
-				break;	
-				case 9: $icon_face = "diff/sent/rate/6.png";
-				break;	
-				case 10: $icon_face = "diff/sent/rate/7.png";
-				break;	
-			}			
+
+	/**
+	 * Generates a single user icon from game assets.
+	 * This is the primary, modern icon generator.
+	 *
+	 * @param int $iconType Type of icon (0:cube, 1:ship, etc.).
+	 * @param int $id The ID of the icon asset.
+	 * @param int $color1Id The ID for the primary color.
+	 * @param int $color2Id The ID for the secondary color.
+	 * @param int $color3Id The ID for the glow color.
+	 * @param bool $glowEnabled Whether the glow layer should be rendered.
+	 * @param int|null $targetPart For multipart icons (robot/spider), which part to render.
+	 * @param bool $saveImage Whether to save the generated image to disk.
+	 * @return array|false An array of GD image resources, keyed by part, or false on failure.
+	 */
+	public function iconGenerator($iconType, $id, $color1Id, $color2Id, $color3Id, $glowEnabled, $targetPart, $saveImage) {
+		// --- 1. Load Internal Palette ---
+		$jsonPath = __DIR__ . '/colors.json';
+		if (!file_exists($jsonPath)) return false;
+
+		$json = file_get_contents($jsonPath);
+		$colorsData = json_decode($json, true);
+		$palette = [];
+		foreach ($colorsData as $c) { 
+			$palette[$c['id']] = [$c['r'], $c['g'], $c['b']]; 
 		}
-		if($feature == 1){
-            switch($stars){
-				case 1: $icon_face = "diff/sent/feat/1.png";
-				break;	
-				case 2: $icon_face = "diff/sent/feat/2.png";
-				break;	
-				case 3: $icon_face = "diff/sent/feat/3.png";
-				break;	
-				case 4: $icon_face = "diff/sent/feat/4.png";
-				break;	
-				case 5: $icon_face = "diff/sent/feat/4.png";
-				break;	
-				case 6: $icon_face = "diff/sent/feat/5.png";
-				break;	
-				case 7: $icon_face = "diff/sent/feat/5.png";
-				break;	
-				case 8: $icon_face = "diff/sent/feat/6.png";
-				break;	
-				case 9: $icon_face = "diff/sent/feat/6.png";
-				break;	
-				case 10: $icon_face = "diff/sent/feat/7.png";
-				break;	
-			}			
+
+		// --- 2. Configure Paths & Names ---
+		$types = [0=>'player', 1=>'ship', 2=>'player_ball', 3=>'bird', 4=>'dart', 5=>'robot', 6=>'spider', 7=>'swing', 8=>'jetpack'];
+		$typeName = $types[$iconType] ?? 'player';
+		$formattedId = sprintf("%02d", $id);
+		$baseName = "{$typeName}_{$formattedId}";
+
+		$savePath = dirname(__DIR__, 2) . "/resources/iconprofile";
+		$pathBase = "{$savePath}/{$baseName}_c{$color1Id}_c{$color2Id}_c{$color3Id}";
+
+		$plistFile = __DIR__ . "/resource/icons/{$baseName}-hd.plist";
+		$spriteSheetFile = __DIR__ . "/resource/icons/{$baseName}-hd.png";
+		if (!file_exists($plistFile) || !file_exists($spriteSheetFile)) return false;
+
+		if ($saveImage && !file_exists($savePath)) {
+			mkdir($savePath, 0777, true);
 		}
-	return $icon_face;
+
+		// --- 3. Process Sprites ---
+		$spriteSheet = imagecreatefrompng($spriteSheetFile);
+		$xml = simplexml_load_file($plistFile);
+		$c1 = $palette[$color1Id]; $c2 = $palette[$color2Id]; $c3 = $palette[$color3Id];
+		$rawLayers = [];
+
+		foreach ($xml->dict->dict[0]->children() as $node) {
+			if ($node->getName() == 'key') { $keyName = (string)$node; }
+			elseif ($node->getName() == 'dict') {
+				$data = []; $lastKey = "";
+				foreach ($node->children() as $s) {
+					if ($s->getName() == 'key') $lastKey = (string)$s;
+					else $data[$lastKey] = ($s->getName() == 'true' ? true : ($s->getName() == 'false' ? false : (string)$s));
+				}
+
+				$pieceNum = "full";
+				if ($iconType == 5 || $iconType == 6) { // Robot or Spider
+					if (preg_match('/' . $baseName . '_(\d{2})/', $keyName, $matches)) {
+						$pieceNum = $matches[1];
+					}
+				}
+
+				if ($targetPart !== null && $pieceNum !== "full" && $pieceNum !== sprintf("%02d", $targetPart)) {
+					continue;
+				}
+
+				$n = strtolower($keyName);
+				$order = 4; $tint = $c1; $useTint = true;
+
+				if (strpos($n, '_glow_') !== false) { 
+					if (!$glowEnabled) continue; 
+					$order = 1; $tint = $c3; 
+				} elseif (strpos($n, '_3_') !== false) { 
+					$order = 2; $useTint = false; 
+				} elseif (strpos($n, '_2_') !== false) { 
+					$order = 3; $tint = $c2; 
+				} elseif (strpos($n, 'extra') !== false) { 
+					$order = 5; $useTint = false; 
+				}
+
+				$rect = explode(',', str_replace(['{','}',' '], '', $data['textureRect']));
+				$isRot = ($data['textureRotated'] === true);
+				$w = $isRot ? (int)$rect[3] : (int)$rect[2];
+				$h = $isRot ? (int)$rect[2] : (int)$rect[3];
+
+				$piece = imagecreatetruecolor($w, $h);
+				imagealphablending($piece, false); imagesavealpha($piece, true);
+				imagefill($piece, 0, 0, imagecolorallocatealpha($piece, 0, 0, 0, 127));
+				imagecopy($piece, $spriteSheet, 0, 0, (int)$rect[0], (int)$rect[1], $w, $h);
+
+				if ($isRot) {
+					$piece = imagerotate($piece, 90, imagecolorallocatealpha($piece, 0, 0, 0, 127));
+					imagealphablending($piece, false); imagesavealpha($piece, true);
+				}
+
+				if ($useTint) $piece = $this->tintImage($piece, $tint);
+
+				$offset = explode(',', str_replace(['{','}',' '], '', $data['spriteOffset']));
+				$rawLayers[] = [
+					'img' => $piece, 'order' => $order, 'num' => $pieceNum,
+					'offX' => (int)$offset[0], 'offY' => (int)$offset[1]
+				];
+			}
+		}
+
+		// --- 4. Final Assembly ---
+		$groups = [];
+		foreach ($rawLayers as $c) { $groups[$c['num']][] = $c; }
+		$result = [];
+
+		foreach ($groups as $num => $components) {
+			usort($components, function($a, $b) { return $a['order'] <=> $b['order']; });
+
+			$minX = 9999; $maxX = -9999; $minY = 9999; $maxY = -9999;
+			foreach ($components as $c) {
+				$w = imagesx($c['img']); $h = imagesy($c['img']);
+				$x1 = $c['offX'] - ($w / 2); $x2 = $c['offX'] + ($w / 2);
+				$y1 = $c['offY'] - ($h / 2); $y2 = $c['offY'] + ($h / 2);
+				if ($x1 < $minX) $minX = $x1; if ($x2 > $maxX) $maxX = $x2;
+				if ($y1 < $minY) $minY = $y1; if ($y2 > $maxY) $maxY = $y2;
+			}
+
+			$finalW = (int)ceil($maxX - $minX);
+			$finalH = (int)ceil($maxY - $minY);
+			$final = imagecreatetruecolor($finalW, $finalH);
+			imagealphablending($final, false); imagesavealpha($final, true);
+			imagefill($final, 0, 0, imagecolorallocatealpha($final, 0, 0, 0, 127));
+			imagealphablending($final, true);
+
+			foreach ($components as $c) {
+				$w = imagesx($c['img']); $h = imagesy($c['img']);
+				$posX = ($c['offX'] - ($w / 2)) - $minX;
+				$posY = $finalH - (($c['offY'] + ($h / 2)) - $minY);
+				imagecopy($final, $c['img'], $posX, $posY, 0, 0, $w, $h);
+				imagedestroy($c['img']);
+			}
+
+			if ($saveImage) {
+				$suffix = ($num !== "full") ? "_" . $num : "";
+				imagepng($final, $pathBase . $suffix . ".png");
+			}
+			$result[$num] = $final;
+		}
+
+		imagedestroy($spriteSheet);
+		return $result;
 	}
-	public function thumbnail($id){
-		switch($id){
-			case 1: $image = "diff/sent/rate/0.png"; //Unrate
-			break;
-			case 2: $image = "levels/like.png"; //Played
-			break;
-			case 3: $image = "diff/sent/feat/0.png"; //Feature
-			break;
-			case 4: $image = "diff/sent/rate/0.png"; //Unfeat
-			break;
-			case 5: $image = "diff/0.png"; //Epic
-			break;
-			case 6: $image = "diff/sent/feat/0.png"; //Unepic
-			break;
-			case 7: $image = "player/user_coin.png"; //Verify
-			break;
-			case 8: $image = "player/user_coin_unverified.png"; //Unverify
-			break;
-			case 9: $image = "misc/daily.png"; //Daily
-			break;
-			case 10: $image = "misc/weekly.png"; //Weekly
-			break;
-			case 11: $image = "buttons/delete.png"; //Delete
-			break;
-			case 12: $image = "buttons/copy_button.png"; //Setacc
-			break;
-			case 13: $image = "buttons/user_button.png"; //USER
-			break;
-		}
-	return $image;
+
+	/**
+	 * Generates the main profile icon for a user.
+	 *
+	 * @param int $accountID The user's account ID.
+	 * @return GdImage|null A GD image resource for the icon.
+	 */
+	public function iconProfile($accountID){
+		include __DIR__ . "/../lib/connection.php";
+
+		$query = $db->prepare("SELECT iconType, icon, color1, color2, color3, accGlow FROM users WHERE extID = :extID");
+		$query->execute([':extID' => $accountID]);
+		$user = $query->fetch();
+
+		if (!$user) return null;
+
+		$iconArray = $this->iconGenerator(
+			$user["iconType"], $user["icon"], $user["color1"],
+			$user["color2"], $user["color3"], ($user["accGlow"] == 1),
+			null, false
+		);
+
+		if (!$iconArray) return null;
+
+		// For normal icons, 'full' will exist. For multipart (robot/spider), it won't.
+		// In that case, we just grab the first available part as a fallback.
+		return $iconArray['full'] ?? reset($iconArray);
 	}
+
+	/**
+	 * Generates a horizontal strip of all user icons except the currently equipped one.
+	 *
+	 * @param int $accountID The user's account ID.
+	 * @return GdImage|null A GD image resource for the icon set.
+	 */
+	public function iconSetProfile($accountID) {
+		include __DIR__ . "/../lib/connection.php";
+
+		$query = $db->prepare("SELECT * FROM users WHERE extID = :extID");
+		$query->execute([':extID' => $accountID]);
+		$user = $query->fetch();
+		if (!$user) return null;
+
+		$glow = ($user["accGlow"] == 1);
+		$accs = [
+			0 => $user["accIcon"], 1 => $user["accShip"], 2 => $user["accBall"],
+			3 => $user["accBird"], 4 => $user["accDart"], 5 => $user["accRobot"],
+			6 => $user["accSpider"], 7 => $user["accSwing"]
+		];
+
+		$iconsToDraw = [];
+		foreach ($accs as $type => $iconID) {
+			if ($type != $user["iconType"]) {
+				$iconsToDraw[$type] = $iconID;
+			}
+		}
+
+		$iconW = 100; $iconH = 115; $sideMargin = 5;
+		$canvasW = (count($iconsToDraw) * $iconW) + ($sideMargin * 2);
+		$canvasH = $iconH;
+
+		$base = imagecreatetruecolor($canvasW, $canvasH);
+		imagesavealpha($base, true);
+		imagefill($base, 0, 0, imagecolorallocatealpha($base, 0, 0, 0, 127));
+		
+		$currentX = $sideMargin; 
+		foreach ($iconsToDraw as $type => $iconID) {
+			$iconResult = $this->iconGenerator($type, $iconID, $user["color1"], $user["color2"], $user["color3"], $glow, 1, false);
+			if (!$iconResult) continue;
+
+			$parts = isset($iconResult['full']) ? [$iconResult['full']] : $iconResult;
+			foreach ($parts as $part) {
+				if ($part) {
+					$pW = imagesx($part); $pH = imagesy($part);
+					$posY = ($canvasH - $pH) / 2;
+					$offsetX = ($iconW - $pW) / 2;
+					imagecopy($base, $part, $currentX + $offsetX, $posY, 0, 0, $pW, $pH);
+					imagedestroy($part);
+				}
+			}
+			$currentX += $iconW;
+		}
+
+		return $base;
+	}
+
+	// -----------------------------------------------------------------------------------------
+	// SECTION: Utility and Helper Functions
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Returns a preset embed color code.
+	 * @param int $id The ID of the color.
+	 * @return string The color code.
+	 */
 	public function embedColor($id){
-		switch($id){
-			case 1: $color = "16776960"; //RATED
-			break;
-            case 2: $color = "65280"; //SENT
-			break;
-            case 3: $color = "16711680"; //UNRATE
-			break;
-            case 4: $color = "16748288"; //UNEPIC/UNFEAT
-			break;
-            case 5: $color = "65535"; //OTHERS
-			break;
-            case 6: $color = "65412"; //ADMIN COMAND
-			break;       
-			case 7: $color = "0"; //ROLE MANAGE
-			break; 
-		}
-	return $color;
+		$colorMap = [
+			1 => "16776960", // Rated
+			2 => "65280",    // Sent
+			3 => "16711680", // Unrate
+			4 => "16748288", // Unepic/Unfeat
+			5 => "65535",    // Others
+			6 => "65412",    // Admin command
+			7 => "0"         // Role manage
+		];
+		return $colorMap[$id] ?? "65535";
 	}
+
+	/**
+	 * Returns the path to a moderator badge icon.
+	 * @param int $accountID The moderator's account ID.
+	 * @return string The relative path to the icon.
+	 */
 	public function modBadge($accountID){
 		include __DIR__ . "/../lib/connection.php";
-		if($accountID == 1){
-			return "misc/gdpsbot.png";
+		include __DIR__ . "/../../config/discord.php"; // For $iconhost
+		if ($accountID == 0) {
+			return $iconhost . "misc/gdpsbot.png";
 		}
+
 		$query = $db->prepare("SELECT roleID FROM roleassign WHERE accountID = :id");
 		$query->execute([':id' => $accountID]);
 		$roleID = $query->fetchColumn();
-		switch($roleID){
-			case 0: $icon = "buttons/profile.png";
-			break;
-			case 1: $icon = "buttons/starmodbroken.png";
-			break;
-			case 2: $icon = "modbadge/mod.png";
-			break;
-			case 3: $icon = "modbadge/elder.png";
-			break;
-			case 4: $icon = "modbadge/head.png";
-			break;
-			case 5: $icon = "modbadge/admin.png";
-			break;
-			case 6: $icon = "modbadge/dev.png";
-			break;
-			case 7: $icon = "modbadge/owner.png";
-			break;
-		}
-	return $icon;
+
+		$badgeMap = [
+			1 => "buttons/starmodbroken.png", 2 => "modbadge/mod.png",
+			3 => "modbadge/elder.png", 4 => "modbadge/head.png",
+			5 => "modbadge/admin.png", 6 => "modbadge/dev.png",
+			7 => "modbadge/owner.png"
+		];
+		$iconPath = $badgeMap[$roleID] ?? "buttons/profile.png";
+		return $iconhost . $iconPath;
 	}
+
+	/**
+	 * Returns the footer text, usually the name of the moderator.
+	 * @param int $accountID The moderator's account ID.
+	 * @return string The footer text.
+	 */
 	public function footerText($accountID){
 		include __DIR__ . "/../lib/connection.php";
-		if($accountID == 1){
-			return "Chaos-Bot";
-		}
-		//DETECT MOD
+		if ($accountID == 0) return "Chaos-Bot";
+
 		$query = $db->prepare("SELECT userName FROM accounts WHERE accountID = :id");
 		$query->execute([':id' => $accountID]);
-		if ($query->rowCount() > 0) {
-			$mod = $query->fetchColumn();
-		}else{
-			$mod = false;
-		}
-		$footertext = "$mod ($accountID)";
-	return $footertext;
-	}
-	//---------------------------------
-	//---------------------------------
+		$mod = $query->fetchColumn() ?: "Unknown User";
 
-	// ICON GENERATOR
-	
-	//---------------------------------
-	//---------------------------------
-	//replace color function
-	public function replaceColor($png, $c){
-		imagesavealpha($png, true);
-		$sizex = imagesx($png);
-		$sizey = imagesy($png);
-		for($y=0;$y<$sizey;$y++) {
-			for($x=0;$x<$sizex;$x++) {
-				$rgb = imagecolorsforindex($png, imagecolorat($png, $x, $y));
-				$transparent = imagecolorallocatealpha($png, 0, 0, 0, 127);
-				imagesetpixel($png, $x, $y, $transparent);
-				$red_set=$c[0]/255*$rgb['red'];
-				$green_set=$c[1]/255*$rgb['green'];
-				$blue_set=$c[2]/255*$rgb['blue'];
-				if($red_set>255)$red_set=255;
-				if($green_set>255)$green_set=255;
-				if($blue_set>255)$blue_set=255;
-				$pixelColor = imagecolorallocatealpha($png, $red_set, $green_set, $blue_set, $rgb['alpha']);
-				imagesetpixel ($png, $x, $y, $pixelColor);
+		return "$mod ($accountID)";
+	}
+
+	/**
+	 * Tints a GD image resource with a specific color while preserving shading.
+	 * @param GdImage $img The source image resource.
+	 * @param array $color An array with [R, G, B] values.
+	 * @return GdImage The tinted image resource.
+	 */
+	public function tintImage($img, $color) {
+		imagesavealpha($img, true);
+		$w = imagesx($img); $h = imagesy($img);
+		for($y=0; $y<$h; $y++) {
+			for($x=0; $x<$w; $x++) {
+				$rgba = imagecolorsforindex($img, imagecolorat($img, $x, $y));
+				if ($rgba['alpha'] == 127) continue;
+				// Multiply RGB channels
+				$r = ($color[0]/255) * $rgba['red']; 
+				$g = ($color[1]/255) * $rgba['green']; 
+				$b = ($color[2]/255) * $rgba['blue'];
+				imagesetpixel($img, $x, $y, imagecolorallocatealpha($img, min(255, $r), min(255, $g), min(255, $b), $rgba['alpha']));
 			}
 		}
-		return $png;
+		return $img;
 	}
-	//COLOR VALUE
-	public function colorSwitch($color){
-		switch($color){
-			case 0: $r = 125; $g = 255; $b = 0; break;
-			case 1: $r = 0; $g = 255; $b = 0; break;
-			case 2: $r = 0; $g = 255; $b = 125; break;
-			case 3: $r = 0; $g = 255; $b = 255; break;
-			case 16: $r = 0; $g = 200; $b = 255; break;
-			case 4: $r = 0; $g = 125; $b = 255; break;
-			case 5: $r = 0; $g = 0; $b = 255; break;
-			case 6: $r = 125; $g = 0; $b = 255; break;
-			case 13: $r = 185; $g = 0; $b = 255; break;
-			case 7: $r = 255; $g = 0; $b = 255; break;
-			case 8: $r = 255; $g = 0; $b = 125; break;
-			case 9: $r = 255; $g = 0; $b = 0; break;
-			case 29: $r = 255; $g = 75; $b = 0; break;
-			case 10: $r = 255; $g = 125; $b = 0; break;
-			case 14: $r = 255; $g = 185; $b = 0; break;
-			case 11: $r = 255; $g = 255; $b = 0; break;
-			case 12: $r = 255; $g = 255; $b = 255; break;
-			case 17: $r = 175; $g = 175; $b = 175; break;
-			case 18: $r = 90; $g = 90; $b = 90; break;
-			case 15: $r = 0; $g = 0; $b = 0; break; //BLACK
-			case 27: $r = 125; $g = 125; $b = 0; break;
-			case 32: $r = 100; $g = 150; $b = 0; break;
-			case 28: $r = 75; $g = 175; $b = 0; break;				
-			case 38: $r = 0; $g = 150; $b = 0; break;
-			case 20: $r = 0; $g = 175; $b = 75; break;
-			case 33: $r = 0; $g = 150; $b = 100; break;
-			case 21: $r = 0; $g = 125; $b = 125; break;
-			case 34: $r = 0; $g = 100; $b = 150; break;
-			case 22: $r = 0; $g = 75; $b = 175; break;
-			case 39: $r = 0; $g = 0; $b = 150; break;
-			case 23: $r = 75; $g = 0; $b = 175; break;
-			case 35: $r = 100; $g = 0; $b = 150; break;
-			case 24: $r = 125; $g = 0; $b = 125; break;
-			case 36: $r = 150; $g = 0; $b = 100; break;
-			case 25: $r = 175; $g = 0; $b = 75; break;
-			case 37: $r = 150; $g = 0; $b = 0; break;
-			case 30: $r = 150; $g = 50; $b = 0; break;
-			case 26: $r = 175; $g = 75; $b = 0; break;
-			case 31: $r = 150; $g = 100; $b = 0; break;
-			case 19: $r = 255; $g = 125; $b = 125; break;
-			case 40: $r = 125; $g = 255; $b = 175; break;
-			case 41: $r = 125; $g = 125; $b = 255; break;
-		}
-		$RGB = array ($r, $g, $b);
-		return $RGB;
-	}
-	//ICON GENERATOR (without query)
-	public function iconGenerator($icontype, $icon, $color1, $color2, $glow, $request){
-		switch($icontype){
-			case 0: $prefix1 = "player"; $prefix2 = "P"; $folder = "0"; break;
-			case 1: $prefix1 = "ship"; $prefix2 = "S"; $folder = "1"; break;
-			case 2: $prefix1 = "player_ball"; $prefix2 = "B"; $folder = "2"; break;
-			case 3: $prefix1 = "bird"; $prefix2 = "U"; $folder = "3"; break;
-			case 4: $prefix1 = "dart"; $prefix2 = "W"; $folder = "4"; break;
-			case 5: $prefix1 = "robot"; $prefix2 = "R"; $folder = "5"; break;
-			case 6: $prefix1 = "spider"; $prefix2 = "A"; $folder = "6"; break;
-		}
-		//set color values
-		$c1 = $this->colorSwitch($color1);
-		$c2 = $this->colorSwitch($color2);
-		$cG = $this->colorSwitch($color2);
-		//icon with glow?
-		$iglow = $prefix1."_".$icon."_glow_001.png";
-		if($glow == 0){
-			$iglow = "0.png";
-		}
-		//if color2 black, set glow color like color 1
-		if($color2 == 15){ $cG = $this->colorSwitch($color1); }
-		//if color1 black, set glow active
-		if($color1 == 15){ $iglow = $prefix1."_".$icon."_glow_001.png"; }
-		//if all colors black, set glow color white
-		if($color1 == 15 AND $color2 == 15){ 
-			$cG = array(255, 255, 255); 
-			$iglow = $prefix1."_".$icon."_glow_001.png";
-		}
-		//set filename and img url
-		$filename = "../../resources/iconProfile/[$icontype.$icon][$color1][$color2][$glow].png";
-		$imgurl = "iconProfile/[$icontype.$icon][$color1][$color2][$glow].png";
-		if($request == 0){
-			$filename = "../../resources/iconProfile/mainIcon/[$icontype.$icon][$color1][$color2][$glow].png";
-			$imgurl = "iconProfile/mainIcon/[$icontype.$icon][$color1][$color2][$glow].png";
-		}
-		//file exists?
-		if (file_exists($filename)) {
-			if($request == 1){ return $filename; }
-			return $imgurl;
-		}
-		//locate png files
-		$basepng = imagecreatefrompng("resource/icon/iconbase.png");
-		imagesavealpha($basepng, true);
-		$png = imagecreatefrompng("resource/icon/".$folder."/".$prefix1."_".$icon."_001.png"); //icon base (color 1)
-		$png2 = imagecreatefrompng("resource/icon/".$folder."/".$prefix1."_".$icon."_2_001.png"); //icon part 2 (color 2)
-		$png3 = imagecreatefrompng("resource/icon/".$folder."/$iglow"); //icon glow
-		//get file size x/y
-		$sizex = imagesx($png);
-		$sizey = imagesy($png);
-		//replace colors
-		$png = $this->replaceColor($png, $c1);
-		$png2 = $this->replaceColor($png2, $c2);
-		$png3 = $this->replaceColor($png3, $cG);
-		//build png
-		if($folder == 3){ //ufo capsule
-			$png5 = imagecreatefrompng("resource/icon/".$folder."/".$prefix1."_".$icon."_3_001.png");
-			imagesavealpha($png5, true);
-			imagecopyresampled( $png5, $png3, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-			$png3 = $png5;
-		}
-		if($request == 0){ 
-			imagecopyresampled( $basepng, $png3, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-			$png3 = $basepng;
-		}
-		imagecopyresampled( $png3, $png2, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-		imagecopyresampled( $png3, $png, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-		//icon detail detect
-		if (file_exists("resource/icon/".$folder."/".$prefix1."_".$icon."_extra_001.png")) {
-			$png4 = imagecreatefrompng("resource/icon/".$folder."/".$prefix1."_".$icon."_extra_001.png");
-			imagesavealpha($png4, true);
-			imagecopyresampled( $png3, $png4, 0, 0, 0, 0, $sizex, $sizey, $sizex, $sizey);
-		}
-		//save png file
-		imagepng($png3, $filename);
-		if($request == 1){ return $filename; }
-		return $imgurl;
-	}
-	//ICON PROFILE DEFAULT
-	public function iconProfile($accountID){
-		chdir(dirname(__FILE__));
-		include __DIR__ . "/../lib/connection.php";
-		$query = $db->prepare("SELECT * FROM users WHERE extID = :extID");
-		$query->execute([':extID' => $accountID]);
-		$result = $query->fetchAll();
-		foreach($result as &$user){
-			$icontype = $user["iconType"];
-			$icon = $user["icon"];
-			$color1 = $user["color1"];
-			$color2 = $user["color2"];
-			$glow = $user["accGlow"];
-			$accIcon = $user["accIcon"];
-		}
-		return $this->iconGenerator($icontype, $icon, $color1, $color2, $glow, 0);
-	}
-	public function iconSetProfile($icontype, $icon, $color1, $color2, $glow, $accIcon, $accShip, $accBall, $accBird, $accDart, $accRobot, $accSpider){
-		chdir(dirname(__FILE__));
-		$icontype = 100;
-		/*
-		include __DIR__ . "/../lib/connection.php";
-		//user data
-		$query = $db->prepare("SELECT * FROM users WHERE extID = :extID");
-		$query->execute([':extID' => $accountID]);
-		$result = $query->fetchAll();
-		foreach($result as &$user){
-			$icontype = $user["iconType"];
-			$icon = $user["icon"];
-			$color1 = $user["color1"];
-			$color2 = $user["color2"];
-			$glow = $user["accGlow"];
-			$accIcon = $user["accIcon"];
-			$accShip = $user["accShip"];
-			$accBall = $user["accBall"];
-			$accBird = $user["accBird"];
-			$accDart = $user["accDart"];
-			$accRobot = $user["accRobot"];
-			$accSpider = $user["accSpider"];
-		}
-		*/
-		//set icon order
-		switch ($icontype) {
-			case 0:
-				$it1 = 1; $it2 = 2; $it3 = 3; $it4 = 4; $it5 = 5; $it6 = 6;
-				$iv1 = $accShip; $iv2 = $accBall; $iv3 = $accBird; $iv4 = $accDart; $iv5 = $accRobot; $iv6 = $accSpider;
-				break;
-			case 1:
-				$it1 = 0; $it2 = 2; $it3 = 3; $it4 = 4; $it5 = 5; $it6 = 6;
-				$iv1 = $accIcon; $iv2 = $accBall; $iv3 = $accBird; $iv4 = $accDart; $iv5 = $accRobot; $iv6 = $accSpider;
-				break;
-			case 2:
-				$it1 = 0; $it2 = 1; $it3 = 3; $it4 = 4; $it5 = 5; $it6 = 6;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBird; $iv4 = $accDart; $iv5 = $accRobot; $iv6 = $accSpider;
-				break;
-			case 3:
-				$it1 = 0; $it2 = 1; $it3 = 2; $it4 = 4; $it5 = 5; $it6 = 6;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBall; $iv4 = $accDart; $iv5 = $accRobot; $iv6 = $accSpider;
-				break;
-			case 4:
-				$it1 = 0; $it2 = 1; $it3 = 2; $it4 = 3; $it5 = 5; $it6 = 6;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBall; $iv4 = $accBird; $iv5 = $accRobot; $iv6 = $accSpider;
-				break;
-			case 5:
-				$it1 = 0; $it2 = 1; $it3 = 2; $it4 = 3; $it5 = 4; $it6 = 6;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBall; $iv4 = $accBird; $iv5 = $accDart; $iv6 = $accSpider;
-				break;
-			case 6:
-				$it1 = 0; $it2 = 1; $it3 = 2; $it4 = 3; $it5 = 4; $it6 = 5;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBall; $iv4 = $accBird; $iv5 = $accDart; $iv6 = $accRobot;
-				break;
-			case 100:
-				$it1 = 0; $it2 = 1; $it3 = 2; $it4 = 3; $it5 = 4; $it6 = 5; $it7 = 6;
-				$iv1 = $accIcon; $iv2 = $accShip; $iv3 = $accBall; $iv4 = $accBird; $iv5 = $accDart; $iv6 = $accRobot; $iv7 = $accSpider;
-			break;
-		}
-		//generate icons
-		$icon1 = $this->iconGenerator($it1, $iv1, $color1, $color2, $glow, 1);
-		$icon2 = $this->iconGenerator($it2, $iv2, $color1, $color2, $glow, 1); 
-		$icon3 = $this->iconGenerator($it3, $iv3, $color1, $color2, $glow, 1); 
-		$icon4 = $this->iconGenerator($it4, $iv4, $color1, $color2, $glow, 1); 
-		$icon5 = $this->iconGenerator($it5, $iv5, $color1, $color2, $glow, 1); 
-		$icon6 = $this->iconGenerator($it6, $iv6, $color1, $color2, $glow, 1);
-		if($icontype == 100){
-			$icon7 = $this->iconGenerator($it7, $iv7, $color1, $color2, $glow, 1);
-		}
-		//set filename & url
-		$filename = "../../resources/iconProfile/iconSet/[$it1.$iv1][$it2.$iv2][$it3.$iv3][$it4.$iv4][$it5.$iv5][$it6.$iv6][$color1][$color2][$glow].png";
-		$imgurl = "iconProfile/iconSet/[$it1.$iv1][$it2.$iv2][$it3.$iv3][$it4.$iv4][$it5.$iv5][$it6.$iv6][$color1][$color2][$glow].png";
-		if($icontype == 100){
-			$filename = "../../resources/iconProfile/iconSet/[$it1.$iv1][$it2.$iv2][$it3.$iv3][$it4.$iv4][$it5.$iv5][$it6.$iv6][$it7.$iv7][$color1][$color2][$glow].png";
-			$imgurl = "iconProfile/iconSet/[$it1.$iv1][$it2.$iv2][$it3.$iv3][$it4.$iv4][$it5.$iv5][$it6.$iv6][$it7.$iv7][$color1][$color2][$glow].png";
-		}		
-		//file exists?
-		if (file_exists($filename)) {
-			return $imgurl;
-		}
-		//locate icons
-		$base = imagecreatefrompng("resource/icon/base.png"); //base
-		if($icontype == 100){
-			$base = imagecreatefrompng("resource/icon/base2.png"); //base
-		}		
-		$icon1 = imagecreatefrompng($icon1); //IMG1
-		$icon2 = imagecreatefrompng($icon2); //IMG2
-		$icon3 = imagecreatefrompng($icon3); //IMG3
-		$icon4 = imagecreatefrompng($icon4); //IMG4
-		$icon5 = imagecreatefrompng($icon5); //IMG5
-		$icon6 = imagecreatefrompng($icon6); //IMG6
-		if($icontype == 100){
-			$icon7 = imagecreatefrompng($icon7); //IMG7
-		}
-		imagesavealpha($base, true);
-		//build icon set
-		imagecopyresampled( $base, $icon1, 0, 0, 0, 0, 60*2, 45*2, 120, 90);
-		imagecopyresampled( $base, $icon2, 60*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		imagecopyresampled( $base, $icon3, 120*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		imagecopyresampled( $base, $icon4, 180*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		imagecopyresampled( $base, $icon5, 240*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		imagecopyresampled( $base, $icon6, 300*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		if($icontype == 100){
-			imagecopyresampled( $base, $icon7, 360*2, 0, 0, 0, 60*2, 45*2, 120, 90);
-		}
-		//save icon set
-		imagepng($base, $filename);
-		return $imgurl;
-	}
+
+	/**
+	 * Automatically assigns Discord roles based on in-game stats.
+	 * @param int $accountID The user's account ID.
+	 * @return bool False if role assignment is disabled or user is not found.
+	 */
 	public function roleAssign($accountID){
 		include __DIR__ . "/../lib/connection.php";
 		include __DIR__ . "/../../config/discord.php";
-		if($roleAssign != 1){ return false; }
-		if($discordEnabled != 1){ return false; }
-		$query = $db->prepare("SELECT discordID,discordLinkReq FROM accounts WHERE accountID=:accountID");
+		if($roleAssign != 1 || $discordEnabled != 1) return false;
+
+		$query = $db->prepare("SELECT discordID, discordLinkReq FROM accounts WHERE accountID=:accountID");
 		$query->execute([':accountID' => $accountID]);
-		if($query->rowCount() == 0){ return false; }
 		$discord = $query->fetch();
-		$discordID = $discord["discordID"];
-		$discordLinkReq = $discord["discordLinkReq"];
-		if($discordLinkReq != 1){ return false; }
+		if(!$discord || $discord["discordLinkReq"] != 1) return false;
+
 		$query = $db->prepare("SELECT stars, creatorPoints, completedMapPacks FROM users WHERE extID=:accountID");
 		$query->execute([':accountID' => $accountID]);
-		if($query->rowCount() == 0){ return false; }
 		$userstats = $query->fetch();
+		if(!$userstats) return false;
+
+		$discordID = $discord["discordID"];
 		$stars = $userstats["stars"];
 		$cp = $userstats["creatorPoints"];
 		$mpc = $userstats["completedMapPacks"];
-		//member role
-		$cmd = $prefix."setrole ".$discordID." ".$role1;
-		$data = array("content"=> $cmd);  
-		$data_string = json_encode($data);
-		$this->discordNotify(3, $data_string);
-		// +500 stars role
-		if($stars > 499){ 
-			$cmd = $prefix."setrole ".$discordID." ".$role2;
-			$data = array("content"=> $cmd);  
-			$data_string = json_encode($data);
-			$this->discordNotify(3, $data_string);
+
+		$this->discordNotify(3, ["content" => $prefix."setrole ".$discordID." ".$role1]); // Member role
+		if ($stars > 499) {
+			$this->discordNotify(3, ["content" => $prefix."setrole ".$discordID." ".$role2]); // +500 stars
 		}
-		// +5 rated levels role & 750 stars
-		if($cp > 4 AND $stars > 749 ){ 
-			$cmd = $prefix."setrole ".$discordID." ".$role3;
-			$data = array("content"=> $cmd);  
-			$data_string = json_encode($data);
-			$this->discordNotify(3, $data_string);
+		if ($cp > 4 && $stars > 749) {
+			$this->discordNotify(3, ["content" => $prefix."setrole ".$discordID." ".$role3]); // +5 rated levels & 750 stars
 		}
-		// +5 cp, 25 mpc & 1500 stars
-		if($cp > 5 AND $mpc > 24 AND $stars > 1499 ){ 
-			$cmd = $prefix."setrole ".$discordID." ".$role4;
-			$data = array("content"=> $cmd);  
-			$data_string = json_encode($data);
-			$this->discordNotify(3, $data_string);
+		if ($cp > 5 && $mpc > 24 && $stars > 1499) {
+			$this->discordNotify(3, ["content" => $prefix."setrole ".$discordID." ".$role4]); // +5 cp, 25 mpc & 1500 stars
 		}
-		// 10 cp's, 3000 stars & all map packs
-		if($cp > 9 AND $stars > 2999){
-			$query = $db->prepare("SELECT count(*) FROM mappacks");
-			$query->execute();
-			$maxmp = $query->fetchColumn();
-			if($mpc == $maxmp){
-				$cmd = $prefix."setrole ".$discordID." ".$role5;
-				$data = array("content"=> $cmd);  
-				$data_string = json_encode($data);
-				$this->discordNotify(3, $data_string);
+		if ($cp > 9 && $stars > 2999) {
+			$maxmp = $db->query("SELECT count(*) FROM mappacks")->fetchColumn();
+			if ($mpc == $maxmp) {
+				$this->discordNotify(3, ["content" => $prefix."setrole ".$discordID." ".$role5]); // 10 cp, 3000 stars & all map packs
 			}
 		}
 	}
+
+	/**
+	 * Prepends a '+' if the value is positive.
+	 * @param int $value The input number.
+	 * @return string The number with a prepended sign if positive.
+	 */
 	public function ispositive($value){
-		if($value > 0){
-			return "+";
-		}
+		return ($value > 0) ? "+" . $value : $value;
 	}
+
+	/**
+	 * Left-pads a value with spaces for alignment.
+	 * @param string $value The string to pad.
+	 * @return string The padded string.
+	 */
 	public function charCount($value){
-		$char = strlen($value);
-		switch($char){
-			case 0: $space = "         ";
-			break;
-			case 1: $space = "        ";
-			break;
-			case 2: $space = "       ";
-			break;
-			case 3: $space = "      ";
-			break;
-			case 4: $space = "     ";
-			break;
-			case 5: $space = "    ";
-			break;
-			case 6: $space = "   ";
-			break;
-			case 7: $space = "  ";
-			break;
-			case 8: $space = " ";
-			break;
-			case 9: $space = "";
-			break;
-		}
-		return $space.$value;
+		return str_pad($value, 9, " ", STR_PAD_LEFT);
 	}
+
+	/**
+	 * Right-pads a value with spaces for alignment.
+	 * @param string $value The string to pad.
+	 * @return string The padded string.
+	 */
 	public function charCount2($value){
-		$char = strlen($value);
-		switch($char){
-			case 0: $space = "     ";
-			break;
-			case 1: $space = "    ";
-			break;
-			case 2: $space = "   ";
-			break;
-			case 3: $space = "  ";
-			break;
-			case 4: $space = " ";
-			break;
-			case 5: $space = "";
-			break;
+		return str_pad($value, 5, " ", STR_PAD_RIGHT);
+	}
+
+	// -----------------------------------------------------------------------------------------
+	// SECTION: Private Helpers
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Sends a multipart/form-data request to the Discord API.
+	 * @param string $url The destination URL.
+	 * @param string $jsonPayload The JSON payload for the message.
+	 * @param array|null $imageResources An array of image resources to attach.
+	 * @return string|false The response from Discord or false on failure.
+	 */
+	private function _sendDiscordRequest($url, $jsonPayload, $imageResources = null) {
+		include __DIR__ . "/../../config/discord.php"; // For $bottoken
+		$boundary = "----Boundary" . uniqid();
+
+		// Build Multipart Body
+		$body = "--$boundary\r\n";
+		$body .= "Content-Disposition: form-data; name=\"payload_json\"\r\n";
+		$body .= "Content-Type: application/json\r\n\r\n";
+		$body .= $jsonPayload . "\r\n";
+
+		if ($imageResources !== null) {
+			if (!is_array($imageResources)) {
+				$imageResources = ['icon.png' => $imageResources];
+			}
+			foreach ($imageResources as $filename => $resource) {
+				$imageData = null;
+
+				if (is_resource($resource) || $resource instanceof GdImage) {
+					ob_start();
+					imagesavealpha($resource, true);
+					imagealphablending($resource, false);
+					imagepng($resource, null, 9);
+					$imageData = ob_get_clean();
+					imagedestroy($resource);
+				}
+				elseif (is_array($resource) && isset($resource['data'])) {
+					$imageData = $resource['data'];
+				}
+				elseif (is_string($resource) && strlen($resource) > 0) {
+					$imageData = $resource;
+				}
+
+				if ($imageData !== null) {
+					$body .= "--$boundary\r\n";
+					$body .= "Content-Disposition: form-data; name=\"file_$filename\"; filename=\"$filename\"\r\n";
+					$body .= "Content-Type: image/png\r\n\r\n";
+					$body .= $imageData . "\r\n";
+				}
+			}
 		}
-		return $value.$space;
+		$body .= "--$boundary--\r\n";
+
+		$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, [
+			"Authorization: Bot $bottoken",
+			"Content-Type: multipart/form-data; boundary=$boundary"
+		]);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_POST, true);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		$response = curl_exec($ch);
+		curl_close($ch);
+		return $response;
 	}
 }
 ?>

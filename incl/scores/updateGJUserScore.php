@@ -124,11 +124,9 @@ if(is_numeric($_POST["accountID"])){
 	);
 	if($starsdiff > 0 OR $coindiff > 0 OR $demondiff > 0 OR $ucdiff > 0 OR $diadiff > 0){
 		$dis->publicAction(1, $userData, 0);
-		//$dis->discordNotifyNew(2, $_POST["accountID"], 2, 1, 18, 7, 1, 0, 0, 0);
 		$dis->roleAssign($_POST["accountID"]);
 	}else if($starsdiff < 0 OR $coindiff < 0 OR $demondiff < 0 OR $ucdiff < 0 OR $diadiff < 0){
 		$dis->publicAction(1, $userData, 0);
-		//$dis->discordNotifyNew(2, $_POST["accountID"], 2, 1, 18, 7, 1, 0, 0, 0);
 		$dis->roleAssign($_POST["accountID"]);
 	}
 }

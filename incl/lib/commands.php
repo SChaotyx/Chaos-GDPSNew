@@ -175,7 +175,7 @@ class Commands {
 		if($gs->checkPermission($accountID, "headTools")){
 				//unrate level
 				if(substr($comment,0,7) == '!unrate'){
-					$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0', issend='0', israted='0', sendcount='0', sendtime='0', sendstars='0', sendrate='0', cpCount='0' WHERE levelID=:levelID");
+					$query = $db->prepare("UPDATE levels SET starFeatured='0', starEpic='0', starStars='0', starCoins='0', starDemon='0', starDemonDiff='0', cpCount='0' WHERE levelID=:levelID");
 					$query->execute([':levelID' => $levelID]);
 					$gs->updatecp(0, $lvlUserID);
 					$query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('16', :value, :levelID, :timestamp, :id)");
@@ -376,9 +376,9 @@ class Commands {
 					$query->execute([':roleID' => $roleID, ':accountID' => $targetAccID]);
 				}
 				if($roleID==1){
-					//$dis->discordNotifyNew(1, $targetAccID, 2, 1, 17, 7, $accountID, 0, 0, 0);
+					$dis->discordNotifyNew(1, $targetAccID, 2, 1, 17, 7, $accountID, 0, 0, 0);
 				}else{
-					//$dis->discordNotifyNew(1, $targetAccID, 2, 1, $titleID, 7, $accountID, 0, 0, 0);
+					$dis->discordNotifyNew(1, $targetAccID, 2, 1, $titleID, 7, $accountID, 0, 0, 0);
 				}
 				return true;
 			}

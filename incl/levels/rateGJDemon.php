@@ -5,6 +5,8 @@ include "../lib/connection.php";
 require_once "../lib/GJPCheck.php";
 require_once "../lib/exploitPatch.php";
 require_once "../lib/mainLib.php";
+require_once "../discord/discordLib.php";
+$dis = new discordLib();
 $gs = new mainLib();
 $gjp2check = isset($_POST['gjp2']) ? $_POST['gjp2'] : $_POST['gjp'];
 if(!isset($gjp2check) OR !isset($_POST["rating"]) OR !isset($_POST["levelID"]) OR !isset($_POST["accountID"])){
@@ -13,8 +15,9 @@ if(!isset($gjp2check) OR !isset($_POST["rating"]) OR !isset($_POST["levelID"]) O
 $gjp = ExploitPatch::remove($gjp2check);
 $rating = ExploitPatch::remove($_POST["rating"]);
 $levelID = ExploitPatch::remove($_POST["levelID"]);
+$accountID = ExploitPatch::remove($_POST["accountID"]);
 $id = GJPCheck::getAccountIDOrDie();
-if($gs->checkPermission($id, "actionRateDemon") == false){
+if($gs->checkPermission($id, "headTools") == false){
 	exit("-1");
 }
 $auto = 0;
@@ -46,5 +49,6 @@ $query = $db->prepare("UPDATE levels SET starDemonDiff=:demon WHERE levelID=:lev
 $query->execute([':demon' => $dmn, ':levelID'=>$levelID]);
 $query = $db->prepare("INSERT INTO modactions (type, value, value3, timestamp, account) VALUES ('10', :value, :levelID, :timestamp, :id)");
 $query->execute([':value' => $dmnname, ':timestamp' => $timestamp, ':id' => $id, ':levelID' => $levelID]);
+$dis->discordNotifyNew(1, $levelID, 1, 2, 15, 2, $accountID, 1, 0, 0);
 echo $levelID;
 ?>

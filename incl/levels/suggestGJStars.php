@@ -16,7 +16,7 @@ $levelID = ExploitPatch::remove($_POST["levelID"]);
 $accountID = GJPCheck::getAccountIDOrDie();
 $difficulty = $gs->getDiffFromStars($stars);
 
-if($gs->checkPermission($accountID, "actionRateStars")){
+if($gs->checkPermission($accountID, "headTools")){
 	$timerated = time() - $gs->getLevelValue($levelID, "rateDate");
 	if($gs->getLevelValue($levelID, "rateDate") == 0){
 		$timerated = 0;
@@ -28,7 +28,7 @@ if($gs->checkPermission($accountID, "actionRateStars")){
 	$dis->discordNotifyNew(1, $levelID, 1, 2, 1, 1, $accountID, 1, 0, 0);
 	echo 1;
 	//}
-}else if($gs->checkPermission($accountID, "actionSuggestRating")){
+}else if($gs->checkPermission($accountID, "modTools")){
 	$gs->suggestLevel($accountID, $levelID, $difficulty["diff"], $stars, $feature, $difficulty["auto"], $difficulty["demon"]);
 	echo 1;
 }else{
