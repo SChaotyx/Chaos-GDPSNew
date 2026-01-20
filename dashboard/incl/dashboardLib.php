@@ -142,6 +142,11 @@ class dashboardLib{
 							<a class="dropdown-item" href="../tools/stats/top24h.php">'.$this->getLocalizedString("leaderboardTime").' (T)</a>
 						</div>
 					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="iconRender.php">
+							<i class="fa fa-picture-o" aria-hidden="true"></i> Icon Render
+						</a>
+					</li>
 				</ul>
 				<ul class="nav navbar-nav ml-auto">
 					<li class="nav-item dropdown">
