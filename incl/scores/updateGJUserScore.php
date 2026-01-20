@@ -101,34 +101,45 @@ if(!empty($sinfo)) {
 }
 $query = $db->prepare("UPDATE users SET gameVersion=:gameVersion, userName=:userName, coins=:coins,  secret=:secret, stars=:stars, demons=:demons, icon=:icon, color1=:color1, color2=:color2, iconType=:iconType, userCoins=:userCoins, special=:special, accIcon=:accIcon, accShip=:accShip, accBall=:accBall, accBird=:accBird, accDart=:accDart, accRobot=:accRobot, accGlow=:accGlow, IP=:hostname, lastPlayed=:uploadDate, accSpider=:accSpider, accExplosion=:accExplosion, diamonds=:diamonds, moons=:moons, color3=:color3, accSwing=:accSwing, accJetpack=:accJetpack, dinfo=:dinfo, sinfo=:sinfo, pinfo=:pinfo WHERE userID=:userID");
 $query->execute([':gameVersion' => $gameVersion, ':userName' => $userName, ':coins' => $coins, ':secret' => $secret, ':stars' => $stars, ':demons' => $demons, ':icon' => $icon, ':color1' => $color1, ':color2' => $color2, ':iconType' => $iconType, ':userCoins' => $userCoins, ':special' => $special, ':accIcon' => $accIcon, ':accShip' => $accShip, ':accBall' => $accBall, ':accBird' => $accBird, ':accDart' => $accDart, ':accRobot' => $accRobot, ':accGlow' => $accGlow, ':hostname' => $hostname, ':uploadDate' => $uploadDate, ':userID' => $userID, ':accSpider'=>$accSpider, ':accExplosion'=>$accExplosion, ':diamonds'=>$diamonds, ':moons' => $moons, ':color3' => $color3, ':accSwing' => $accSwing, ':accJetpack' => $accJetpack, ':dinfo' => $dinfo, ':sinfo' => $starsCount, ':pinfo' => $platformerCount]);
-$starsdiff = $stars - $old["stars"];
-$coindiff = $coins - $old["coins"];
-$demondiff = $demons - $old["demons"];
-$ucdiff = $userCoins - $old["userCoins"];
-$diadiff = $diamonds - $old["diamonds"];
-$moondiff = $moons - $old["moons"];
-$extID = $old["extID"];
+	$starsdiff = $stars - $old["stars"];
+	$coindiff = $coins - $old["coins"];
+	$demondiff = $demons - $old["demons"];
+	$ucdiff = $userCoins - $old["userCoins"];
+	$diadiff = $diamonds - $old["diamonds"];
+	$moondiff = $moons - $old["moons"];
+	$extID = $old["extID"];
 
-$query2 = $db->prepare("INSERT INTO actions (type, value, timestamp, account, value2, value3, value4, value5, value6) 
+	// Get creatorPoints after updatecp call
+	$query3 = $db->prepare("SELECT creatorPoints FROM users WHERE userID = :userID");
+	$query3->execute([':userID' => $userID]);
+	$newCreatorPoints = $query3->fetchColumn();
+	$creatorPointsdiff = $newCreatorPoints - $old["creatorPoints"];
+
+	// Check if icon changed
+	$iconChanged = ($iconType != $old["iconType"] OR $icon != $old["icon"] OR $color1 != $old["color1"] OR 
+					$color2 != $old["color2"] OR $color3 != $old["color3"] OR $accGlow != $old["accGlow"] OR
+					$accIcon != $old["accIcon"] OR $accShip != $old["accShip"] OR $accBall != $old["accBall"] OR
+					$accBird != $old["accBird"] OR $accDart != $old["accDart"] OR $accRobot != $old["accRobot"] OR
+					$accSpider != $old["accSpider"] OR $accSwing != $old["accSwing"] OR $accJetpack != $old["accJetpack"]);
+
+	$query2 = $db->prepare("INSERT INTO actions (type, value, timestamp, account, value2, value3, value4, value5, value6) 
 									 VALUES ('9',:stars,:timestamp,:account,:coinsd, :demon, :usrco, :diamond, :moons)"); //creating the action
-$query2->execute([':timestamp' => time(), ':stars' => $starsdiff, ':account' => $userID, ':coinsd' => $coindiff, ':demon' => $demondiff, ':usrco' => $ucdiff, ':diamond' => $diadiff, ':moons' => $moondiff]);
-if(is_numeric($_POST["accountID"])){
-	$userData = array(
-		"userName" => $userName, "userID" => $userID,
-		"stars" => $stars, "starsDiff" => $starsdiff,
-		"coins" => $coins, "coinsDiff" => $coindiff,
-		"demons" => $demons, "demonsDiff" => $demondiff,
-		"uc" => $userCoins, "ucDiff" => $ucdiff,
-		"diamonds" => $diamonds, "diamondsDiff" => $diadiff,
-		"extID" => $extID
-	);
-	if($starsdiff > 0 OR $coindiff > 0 OR $demondiff > 0 OR $ucdiff > 0 OR $diadiff > 0){
-		$dis->publicAction(1, $userData, 0);
-		$dis->roleAssign($_POST["accountID"]);
-	}else if($starsdiff < 0 OR $coindiff < 0 OR $demondiff < 0 OR $ucdiff < 0 OR $diadiff < 0){
-		$dis->publicAction(1, $userData, 0);
-		$dis->roleAssign($_POST["accountID"]);
+	$query2->execute([':timestamp' => time(), ':stars' => $starsdiff, ':account' => $userID, ':coinsd' => $coindiff, ':demon' => $demondiff, ':usrco' => $ucdiff, ':diamond' => $diadiff, ':moons' => $moondiff]);
+	if(is_numeric($_POST["accountID"])){
+		$userData = array(
+			"userName" => $userName, "userID" => $userID,
+			"stars" => $stars, "starsDiff" => $starsdiff,
+			"coins" => $coins, "coinsDiff" => $coindiff,
+			"demons" => $demons, "demonsDiff" => $demondiff,
+			"uc" => $userCoins, "ucDiff" => $ucdiff,
+			"moons" => $moons, "moonsDiff" => $moondiff,
+			"creatorPoints" => $newCreatorPoints, "creatorPointsDiff" => $creatorPointsdiff,
+			"diamonds" => $diamonds, "diamondsDiff" => $diadiff,
+			"extID" => $extID
+		);
+		if($starsdiff != 0 OR $coindiff != 0 OR $demondiff != 0 OR $ucdiff != 0 OR $diadiff != 0 OR $moondiff != 0 OR $creatorPointsdiff != 0 OR $iconChanged){
+			$dis->publicAction(1, $userData, 18);
+		}
 	}
-}
 echo $userID;
 ?>

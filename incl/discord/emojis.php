@@ -27,6 +27,7 @@ $icon_verifycoins = "<:verify:588245548528697344>";
 $icon_secretcoin = "<:secret:588245549149323283>";
 $icon_demon = "<:demon:588245544451833856>";
 $icon_cp = "<:cp:588245543600390184>";
+$icon_moon = "<:moon:1463307687537152254>";
 $icon_orbs = "<:orbs:622293318516080650>";
 $icon_creatorrank = "<:creatorrank:588247074068234240>";
 $icon_globalrank = "<:global:588247074236137502>";

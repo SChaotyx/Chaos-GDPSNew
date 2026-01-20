@@ -252,13 +252,87 @@ class discordLib {
 
 		// --- Profiles Section ---
 		if ($objectType == 1) {
+			include __DIR__ . "/../lib/connection.php";
+			
 			$userTitle = ":chart_with_upwards_trend: __**" . $objData["userName"] . "'s**__ Stats";
 
-			$stats = "$icon_star `".$this->charCount($objData["stars"])."` ─> `".$this->charCount2($this->ispositive($objData["starsDiff"]).$objData["starsDiff"])."`\n".
-					 "$icon_diamond `".$this->charCount($objData["diamonds"])."` ─> `".$this->charCount2($this->ispositive($objData["diamondsDiff"]).$objData["diamondsDiff"])."`\n".
-					 "$icon_secretcoin `".$this->charCount($objData["coins"])."` ─> `".$this->charCount2($this->ispositive($objData["coinsDiff"]).$objData["coinsDiff"])."`\n".
-					 "$icon_verifycoins `".$this->charCount($objData["uc"])."` ─> `".$this->charCount2($this->ispositive($objData["ucDiff"]).$objData["ucDiff"])."`\n".
-					 "$icon_demon `".$this->charCount($objData["demons"])."` ─> `".$this->charCount2($this->ispositive($objData["demonsDiff"]).$objData["demonsDiff"])."`";
+			// Build stats string - show changes if any, otherwise show current stats
+			$stats = "";
+			$hasChanges = false;
+			
+			if(isset($objData["starsDiff"]) && $objData["starsDiff"] != 0) {
+				$stats .= "$icon_star `".$this->charCount($objData["stars"])."` ─> `".$this->charCount2($this->ispositive($objData["starsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["moonsDiff"]) && $objData["moonsDiff"] != 0) {
+				$stats .= "$icon_moon `".$this->charCount($objData["moons"])."` ─> `".$this->charCount2($this->ispositive($objData["moonsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["coinsDiff"]) && $objData["coinsDiff"] != 0) {
+				$stats .= "$icon_secretcoin `".$this->charCount($objData["coins"])."` ─> `".$this->charCount2($this->ispositive($objData["coinsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["ucDiff"]) && $objData["ucDiff"] != 0) {
+				$stats .= "$icon_verifycoins `".$this->charCount($objData["uc"])."` ─> `".$this->charCount2($this->ispositive($objData["ucDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["demonsDiff"]) && $objData["demonsDiff"] != 0) {
+				$stats .= "$icon_demon `".$this->charCount($objData["demons"])."` ─> `".$this->charCount2($this->ispositive($objData["demonsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["creatorPointsDiff"]) && $objData["creatorPointsDiff"] != 0) {
+				$stats .= "$icon_cp `".$this->charCount($objData["creatorPoints"])."` ─> `".$this->charCount2($this->ispositive($objData["creatorPointsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			if(isset($objData["diamondsDiff"]) && $objData["diamondsDiff"] != 0) {
+				$stats .= "$icon_diamond `".$this->charCount($objData["diamonds"])."` ─> `".$this->charCount2($this->ispositive($objData["diamondsDiff"]))."`\n";
+				$hasChanges = true;
+			}
+			
+			// If no stat changes but profile was updated (icons/colors/glow), show current stats
+			if(!$hasChanges && isset($objData["stars"])) {
+				$stats = "$icon_star `".$this->charCount($objData["stars"])."` \n".
+						 "$icon_moon `".$this->charCount($objData["moons"])."` \n".
+						 "$icon_secretcoin `".$this->charCount($objData["coins"])."` \n".
+						 "$icon_verifycoins `".$this->charCount($objData["uc"])."` \n".
+						 "$icon_demon `".$this->charCount($objData["demons"])."` \n".
+						 "$icon_cp `".$this->charCount($objData["creatorPoints"])."` \n".
+						 "$icon_diamond `".$this->charCount($objData["diamonds"])."`";
+			}
+			
+			// Get user rank
+			$query = $db->prepare("SELECT roleID FROM roleassign WHERE accountID = :id LIMIT 1");
+			$query->execute([':id' => $objData["extID"]]);
+			$roleID = $query->fetchColumn() ?: 0;
+			$rankMap = [
+				1 => "$icon_brokenmodstar **DEMOTED :(**\n",
+				2 => "$icon_mod **MODERATOR**\n",
+				3 => "$icon_head **HEAD MOD**\n",
+				4 => "$icon_elder **ELDER MOD**\n",
+				5 => "$icon_admin **ADMIN**\n",
+			];
+			$rank = $rankMap[$roleID] ?? "";
+
+			// Get global leaderboard rank
+			$globalRank = "";
+			if ($objData["stars"] > 25) {
+				$db->query("SET @rownum := 0;");
+				$query = $db->prepare("SELECT rank FROM (SELECT @rownum := @rownum + 1 AS rank, extID FROM users WHERE isBanned = '0' AND gameVersion > 19 AND stars > 25 ORDER BY stars DESC) as result WHERE extID=:extid");
+				$query->execute([':extid' => $objData["extID"]]);
+				$globalPos = $query->fetchColumn();
+				if ($globalPos) {
+					$trophyMap = [1000 => $icon_top1000, 500 => $icon_top500, 200 => $icon_top200, 100 => $icon_top100, 50 => $icon_top50, 10 => $icon_top10, 1 => $icon_top1];
+					$globalTrophy = $icon_globalrank;
+					foreach ($trophyMap as $rankNum => $trophy) {
+						if ($globalPos < $rankNum + 1) $globalTrophy = $trophy;
+					}
+					$globalRank = "$globalTrophy **Global Rank:** $globalPos \n";
+				}
+			}
+
+			// Prepare leaderboard info
+			$leaderboardInfo = $rank . $globalRank;
+			if($leaderboardInfo == "") $leaderboardInfo = "────────────";
 					 
 			$userInfo = "userID: " . $objData["userID"];
 
@@ -268,10 +342,19 @@ class discordLib {
 			// 2. Get the icon set (horizontal strip of other icons)
 			$imageSet = $this->iconSetProfile($objData["extID"]);
 
+			$title = $this->title($action);
+			
+			// If no stats, set default
+			if($stats == "") $stats = "────────────";
+			
 			$data = [
 				'embed' => [
-					"title" => "$icon_info User Stats Updated!!!",
-					"description" => $userTitle . "\n\n" . $stats,
+					"title" => $title,
+					"description" => $userTitle,
+					"fields" => [
+						["name" => "────────────", "value" => $stats, "inline" => true],
+						["name" => "────────────", "value" => $leaderboardInfo, "inline" => true]
+					],
 					"footer" => ["icon_url" => ($iconhost . "misc/gdpsbot.png"), "text" => $userInfo],
 					"thumbnail" => ["url" => "attachment://thumb.png"], // Current icon
 					"image" => ["url" => "attachment://icon.png"]      // Icon set below
@@ -313,7 +396,7 @@ class discordLib {
 			case 15: $title = "$icon_succes Rated Demon!!!"; break;
 			case 16: $title = "$icon_modstar User Promoted!!!"; break;
 			case 17: $title = "$icon_brokenmodstar User Demoted..."; break;
-			case 18: $title = "$icon_info User Stats Updated!!!"; break;
+			case 18: $title = "$icon_info User Profile Update!!!"; break;
 			case 19: $title = "$icon_info Level Updated!!!"; break;
 			case 20: $title = "$icon_info New recent level uploaded!!!"; break;
 			case 21: $title = "$icon_search Search result."; break;
@@ -640,7 +723,7 @@ class discordLib {
 
 		// Prepare strings for display
 		$userTitle = "**:chart_with_upwards_trend: " . $userStats["userName"] . "'s stats**";
-		$statsDisplay = "$icon_star `".$this->charCount($userStats["stars"])."` \n $icon_diamond `".$this->charCount($userStats["diamonds"])."` \n $icon_secretcoin `".$this->charCount($userStats["coins"])."` \n $icon_verifycoins `".$this->charCount($userStats["userCoins"])."` \n $icon_demon `".$this->charCount($userStats["demons"])."` \n $icon_cp `".$this->charCount($userStats["creatorPoints"])."`";
+		$statsDisplay = "$icon_star `".$this->charCount($userStats["stars"])."` \n $icon_moon `".$this->charCount($userStats["moons"])."` \n $icon_secretcoin `".$this->charCount($userStats["coins"])."` \n $icon_verifycoins `".$this->charCount($userStats["userCoins"])."` \n $icon_demon `".$this->charCount($userStats["demons"])."` \n $icon_cp `".$this->charCount($userStats["creatorPoints"])."` \n $icon_diamond `".$this->charCount($userStats["diamonds"])."`";
 		$leaderboardInfo = $rank . $globalRank . $creatorRank . $socials;
 		$userInfoFooter = " | UserID: " . $userStats["userID"] . " | AccID: $targetAccID";
 
