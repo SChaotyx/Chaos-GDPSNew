@@ -961,4 +961,36 @@ class mainLib {
 			'top_users' => $topUsers
 		);
   	}
+	
+	public function timeElapsed($timestamp){
+		$delta = time() - $timestamp;
+		if ($delta < 1){
+			return '0 seconds';
+		}
+		return $this->makeTime($delta) . ' ago';
+	}
+	
+	public function timeElapsed2($timestamp){
+		$etime = time() - $timestamp;
+		if ($etime < 1){
+			return '0 seconds';
+		}
+		$a = array(
+			86400  =>  'day',
+			3600  =>  'hour',
+			60  =>  'minute',
+			1  =>  'second');
+		$a_plural = array( 
+			'day'    => 'days',
+			'hour'   => 'hours',
+			'minute' => 'minutes',
+			'second' => 'seconds');
+		foreach ($a as $secs => $str){
+			$d = $etime / $secs;
+			if ($d >= 1){
+				$r = round($d);
+				return $r . ' ' . ($r > 1 ? $a_plural[$str] : $str) . ' ago';
+			}
+		}
+	}
 }

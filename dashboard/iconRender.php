@@ -534,37 +534,37 @@ $html = '
 <div class="container-fluid container-box">
     <div class="card">
         <div class="card-block buffer">
-            <h1><i class="fa fa-picture-o" aria-hidden="true"></i> Icon Render</h1>
+            <h1><i class="fa fa-picture-o" aria-hidden="true"></i> '.$dl->getLocalizedString("iconRender").'</h1>
             
             <div class="row">
                 <div class="col-12">
                     <div class="card" style="background-color: #2f3136; border: 1px solid #40444b;">
                         <div class="card-body" style="padding: 10px;">
-                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">Options</h5>
+                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">'.$dl->getLocalizedString("iconRenderOptions").'</h5>
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="quality" style="margin-bottom: 3px; font-size: 0.9em;">Quality:</label>
+                                        <label for="quality" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderQuality").'</label>
                                         <select name="quality" id="quality" class="form-control" onchange="updateQuality(this.value);">
-                                            <option value="low" ' . (($selectedQuality == 'low' || $selectedQuality == '') ? 'selected' : '') . '>Low</option>
-                                            <option value="hd" ' . ($selectedQuality == 'hd' ? 'selected' : '') . '>Medium</option>
-                                            <option value="uhd" ' . ($selectedQuality == 'uhd' ? 'selected' : '') . '>High</option>
+                                            <option value="low" ' . (($selectedQuality == 'low' || $selectedQuality == '') ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderQualityLow").'</option>
+                                            <option value="hd" ' . ($selectedQuality == 'hd' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderQualityMedium").'</option>
+                                            <option value="uhd" ' . ($selectedQuality == 'uhd' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderQualityHigh").'</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="glow" style="margin-bottom: 3px; font-size: 0.9em;">Glow:</label>
+                                        <label for="glow" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderGlow").'</label>
                                         <select name="glow" id="glow" class="form-control" onchange="updateGlow(this.value);">
-                                            <option value="random" ' . ($selectedGlow == 'random' ? 'selected' : '') . '>Random</option>
-                                            <option value="yes" ' . ($selectedGlow == 'yes' ? 'selected' : '') . '>Yes</option>
-                                            <option value="no" ' . ($selectedGlow == 'no' ? 'selected' : '') . '>No</option>
+                                            <option value="random" ' . ($selectedGlow == 'random' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderRandom").'</option>
+                                            <option value="yes" ' . ($selectedGlow == 'yes' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderYes").'</option>
+                                            <option value="no" ' . ($selectedGlow == 'no' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderNo").'</option>
                                         </select>
                                     </div>
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label style="margin-bottom: 3px; font-size: 0.9em;">Color 1:</label>
+                                        <label style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderColor1").'</label>
                                         <input type="hidden" name="color1" id="color1" value="' . ($selectedColor1 !== null ? $selectedColor1 : '') . '">
                                         <div id="color1Preview" class="color-preview" style="width: 100%; height: 30px; border: 2px solid #40444b; border-radius: 4px; background-color: #2f3136; cursor: pointer; position: relative; margin-bottom: 5px;" onclick="toggleColorPicker(1);">
                                             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #a7a8aa; font-size: 0.8em;">' . ($selectedColor1 !== null ? 'Color ' . $selectedColor1 : 'Random') . '</div>
@@ -586,7 +586,7 @@ $html .= '
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label style="margin-bottom: 3px; font-size: 0.9em;">Color 2:</label>
+                                        <label style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderColor2").'</label>
                                         <input type="hidden" name="color2" id="color2" value="' . ($selectedColor2 !== null ? $selectedColor2 : '') . '">
                                         <div id="color2Preview" class="color-preview" style="width: 100%; height: 30px; border: 2px solid #40444b; border-radius: 4px; background-color: #2f3136; cursor: pointer; position: relative; margin-bottom: 5px;" onclick="toggleColorPicker(2);">
                                             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #a7a8aa; font-size: 0.8em;">' . ($selectedColor2 !== null ? 'Color ' . $selectedColor2 : 'Random') . '</div>
@@ -608,7 +608,7 @@ $html .= '
                                 </div>
                                 <div class="col-md-2">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label style="margin-bottom: 3px; font-size: 0.9em;">Glow:</label>
+                                        <label style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderGlow").'</label>
                                         <input type="hidden" name="color3" id="color3" value="' . ($selectedColor3 !== null ? $selectedColor3 : '') . '">
                                         <div id="color3Preview" class="color-preview" style="width: 100%; height: 30px; border: 2px solid #40444b; border-radius: 4px; background-color: #2f3136; cursor: pointer; position: relative; margin-bottom: 5px;" onclick="toggleColorPicker(3);">
                                             <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #a7a8aa; font-size: 0.8em;">' . ($selectedColor3 !== null ? 'Glow ' . $selectedColor3 : 'Random') . '</div>
@@ -638,16 +638,32 @@ $html .= '
                 <div class="col-12">
                     <div class="card" style="background-color: #2f3136; border: 1px solid #40444b;">
                         <div class="card-body" style="padding: 10px;">
-                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">Generate Icon</h5>
+                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">'.$dl->getLocalizedString("iconRenderGenerateIcon").'</h5>
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="icon_type" style="margin-bottom: 3px; font-size: 0.9em;">Icon Type:</label>
+                                        <label for="icon_type" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderIconType").'</label>
                                 <select name="icon_type" id="icon_type" class="form-control" onchange="updateIconType();">
-                                    <option value="-1" ' . ($selectedIconType == -1 ? 'selected' : '') . '>Random</option>';
+                                    <option value="-1" ' . ($selectedIconType == -1 ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderRandom").'</option>';
+$iconTypeLabels = [
+    'player' => 'iconRenderIconTypePlayer',
+    'ship' => 'iconRenderIconTypeShip',
+    'player_ball' => 'iconRenderIconTypePlayerBall',
+    'bird' => 'iconRenderIconTypeBird',
+    'dart' => 'iconRenderIconTypeDart',
+    'robot' => 'iconRenderIconTypeRobot',
+    'spider' => 'iconRenderIconTypeSpider',
+    'swing' => 'iconRenderIconTypeSwing',
+    'jetpack' => 'iconRenderIconTypeJetpack'
+];
 foreach ($iconTypes as $typeId => $typeName) {
     if (isset($availableIconsByType[$typeId]) && !empty($availableIconsByType[$typeId])) {
-        $html .= '<option value="' . $typeId . '" ' . ($selectedIconType == $typeId ? 'selected' : '') . '>' . ucfirst($typeName) . ' (' . count($availableIconsByType[$typeId]) . ' icons)</option>';
+        $typeKey = isset($iconTypeLabels[$typeName]) ? $iconTypeLabels[$typeName] : null;
+        $typeLabel = $typeKey ? $dl->getLocalizedString($typeKey) : '';
+        if (empty($typeLabel)) {
+            $typeLabel = ucfirst(str_replace('_', ' ', $typeName));
+        }
+        $html .= '<option value="' . $typeId . '" ' . ($selectedIconType == $typeId ? 'selected' : '') . '>' . $typeLabel . ' (' . count($availableIconsByType[$typeId]) . ' ' . $dl->getLocalizedString("iconRenderIcons") . ')</option>';
     }
 }
 $html .= '
@@ -656,14 +672,14 @@ $html .= '
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="icon_id" style="margin-bottom: 3px; font-size: 0.9em;">Icon ID:</label>
-                                        <input type="number" name="icon_id" id="icon_id" class="form-control" placeholder="Leave empty for random" min="1" style="height: 32px; font-size: 0.9em;" />
-                                        <small class="form-text text-muted" id="iconIdHelp" style="font-size: 0.8em;">Max: <span id="maxIconId">-</span></small>
+                                        <label for="icon_id" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderIconID").'</label>
+                                        <input type="number" name="icon_id" id="icon_id" class="form-control" placeholder="'.$dl->getLocalizedString("iconRenderLeaveEmpty").'" min="1" style="height: 32px; font-size: 0.9em;" />
+                                        <small class="form-text text-muted" id="iconIdHelp" style="font-size: 0.8em;">'.$dl->getLocalizedString("iconRenderMax").' <span id="maxIconId">-</span></small>
                                     </div>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-primary btn-block" onclick="generateIcon();" style="margin-top: 5px; padding: 6px; font-size: 0.9em;">
-                                <i class="fa fa-image" aria-hidden="true"></i> Generate Icon
+                                <i class="fa fa-image" aria-hidden="true"></i> '.$dl->getLocalizedString("iconRenderGenerateIcon").'
                             </button>
                         </div>
                     </div>
@@ -674,27 +690,27 @@ $html .= '
                 <div class="col-12">
                     <div class="card" style="background-color: #2f3136; border: 1px solid #40444b;">
                         <div class="card-body" style="padding: 10px;">
-                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">Generate Icon Set</h5>
+                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">'.$dl->getLocalizedString("iconRenderGenerateIconSet").'</h5>
                             <div class="row">
                                 <div class="col-md-8">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="user_input" style="margin-bottom: 3px; font-size: 0.9em;">Username or Account ID:</label>
-                                        <input type="text" name="user_input" id="user_input" class="form-control" placeholder="Leave empty for random" style="height: 32px; font-size: 0.9em;" />
-                                        <small class="form-text text-muted" style="font-size: 0.8em;">Enter a username or account ID to generate that user icon set</small>
+                                        <label for="user_input" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderUsernameOrAccountID").'</label>
+                                        <input type="text" name="user_input" id="user_input" class="form-control" placeholder="'.$dl->getLocalizedString("iconRenderLeaveEmpty").'" style="height: 32px; font-size: 0.9em;" />
+                                        <small class="form-text text-muted" style="font-size: 0.8em;">'.$dl->getLocalizedString("iconRenderUsernameOrAccountIDDesc").'</small>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-group" style="margin-bottom: 8px;">
-                                        <label for="include_jetpack" style="margin-bottom: 3px; font-size: 0.9em;">Include Jetpack:</label>
+                                        <label for="include_jetpack" style="margin-bottom: 3px; font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderIncludeJetpack").'</label>
                                         <select name="include_jetpack" id="include_jetpack" class="form-control" style="height: 32px; font-size: 0.9em;">
-                                            <option value="yes" ' . ($selectedIncludeJetpack == 'yes' ? 'selected' : '') . '>Yes</option>
-                                            <option value="no" ' . ($selectedIncludeJetpack == 'no' ? 'selected' : '') . '>No</option>
+                                            <option value="yes" ' . ($selectedIncludeJetpack == 'yes' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderYes").'</option>
+                                            <option value="no" ' . ($selectedIncludeJetpack == 'no' ? 'selected' : '') . '>'.$dl->getLocalizedString("iconRenderNo").'</option>
                                         </select>
                                     </div>
                                 </div>
                             </div>
                             <button type="button" class="btn btn-primary btn-block" onclick="generateIconSet();" style="margin-top: 5px; padding: 6px; font-size: 0.9em;">
-                                <i class="fa fa-th" aria-hidden="true"></i> Generate IconSet
+                                <i class="fa fa-th" aria-hidden="true"></i> '.$dl->getLocalizedString("iconRenderGenerateIconSet").'
                             </button>
                         </div>
                     </div>
@@ -705,9 +721,9 @@ $html .= '
                 <div class="col-12">
                     <div class="card" style="background-color: #2f3136; border: 1px solid #40444b;">
                         <div class="card-body" style="padding: 10px;">
-                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">Preview</h5>
+                            <h5 class="card-title" style="margin-bottom: 10px; font-size: 1.1em;">'.$dl->getLocalizedString("iconRenderPreview").'</h5>
                             <div class="preview-image" id="previewContainer">
-                                <div class="placeholder" id="previewPlaceholder" style="font-size: 0.9em;">Press a button to generate an icon</div>
+                                <div class="placeholder" id="previewPlaceholder" style="font-size: 0.9em;">'.$dl->getLocalizedString("iconRenderPressButton").'</div>
                                 <img id="previewImage" style="display: none;" />
                             </div>
                         </div>
@@ -846,6 +862,14 @@ $html .= '
 <script>
     let currentQuality = "' . htmlspecialchars($selectedQuality) . '";
     let currentGlow = "' . htmlspecialchars($selectedGlow) . '";
+    
+    // Traducciones
+    const translations = {
+        generatingIcon: "' . htmlspecialchars($dl->getLocalizedString("iconRenderGeneratingIcon")) . '",
+        generatingIconSet: "' . htmlspecialchars($dl->getLocalizedString("iconRenderGeneratingIconSet")) . '",
+        errorGeneratingIcon: "' . htmlspecialchars($dl->getLocalizedString("iconRenderErrorGeneratingIcon")) . '",
+        errorGeneratingIconSet: "' . htmlspecialchars($dl->getLocalizedString("iconRenderErrorGeneratingIconSet")) . '"
+    };
     
     // Datos de iconos disponibles por tipo
     const availableIconsByType = ' . json_encode($availableIconsByType) . ';
@@ -1026,7 +1050,7 @@ $html .= '
         const previewImage = document.getElementById("previewImage");
         const previewPlaceholder = document.getElementById("previewPlaceholder");
         
-        previewPlaceholder.innerHTML = "<div class=\"loading\">Generating icon...</div>";
+        previewPlaceholder.innerHTML = "<div class=\"loading\">" + translations.generatingIcon + "</div>";
         previewPlaceholder.style.display = "block";
         previewImage.style.display = "none";
         
@@ -1071,7 +1095,7 @@ $html .= '
                 previewImage.style.display = "block";
                 previewPlaceholder.style.display = "none";
             } else {
-                previewPlaceholder.innerHTML = "<div class=\"placeholder\">" + (data.error || "Error generating icon") + "</div>";
+                previewPlaceholder.innerHTML = "<div class=\"placeholder\">" + (data.error || "'.$dl->getLocalizedString("iconRenderErrorGeneratingIcon").'") + "</div>";
                 previewPlaceholder.style.display = "block";
                 previewImage.style.display = "none";
             }
@@ -1089,7 +1113,7 @@ $html .= '
         const previewPlaceholder = document.getElementById("previewPlaceholder");
         const userInput = document.getElementById("user_input").value;
         
-        previewPlaceholder.innerHTML = "<div class=\"loading\">Generating icon set...</div>";
+        previewPlaceholder.innerHTML = "<div class=\"loading\">" + translations.generatingIconSet + "</div>";
         previewPlaceholder.style.display = "block";
         previewImage.style.display = "none";
         
@@ -1135,7 +1159,7 @@ $html .= '
                 previewImage.style.display = "block";
                 previewPlaceholder.style.display = "none";
             } else {
-                previewPlaceholder.innerHTML = "<div class=\"placeholder\">" + (data.error || "Error generating Icon Set") + "</div>";
+                previewPlaceholder.innerHTML = "<div class=\"placeholder\">" + (data.error || translations.errorGeneratingIconSet) + "</div>";
                 previewPlaceholder.style.display = "block";
                 previewImage.style.display = "none";
             }

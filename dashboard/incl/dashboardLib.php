@@ -56,6 +56,7 @@ class dashboardLib{
 		$homeActive = "";
 		$accountActive = "";
 		$modActive = "";
+		$adminActive = "";
 		$reuploadActive = "";
 		$statsActive = "";
 		switch($active){
@@ -67,6 +68,9 @@ class dashboardLib{
 				break;
 			case "mod":
 				$modActive = "active";
+				break;
+			case "admin":
+				$adminActive = "active";
 				break;
 			case "reupload":
 				$reuploadActive = "active";
@@ -92,11 +96,9 @@ class dashboardLib{
 							<i class="fa fa-folder-open" aria-hidden="true"></i> '.$this->getLocalizedString("browse").'
 						</a>
 						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-							<a class="dropdown-item" href="#">'.$this->getLocalizedString("accounts").' (N)</a>
-							<a class="dropdown-item" href="#">'.$this->getLocalizedString("levels").' (N)</a>
-							<a class="dropdown-item" href="stats/modActionsList.php">'.$this->getLocalizedString("modActions").'</a>
-							<a class="dropdown-item" href="stats/packTable.php">'.$this->getLocalizedString("packTable").'</a>
-							<a class="dropdown-item" href="stats/gauntletTable.php">'.$this->getLocalizedString("gauntletTable").'</a>';
+							<a class="dropdown-item" href="browse/modList.php">'.$this->getLocalizedString("ModList").'</a>
+							<a class="dropdown-item" href="browse/modSent.php">'.$this->getLocalizedString("modSent").'</a>
+							<a class="dropdown-item" href="stats/modCount.php">'.$this->getLocalizedString("modcount").'</a>';
 		if(isset($_SESSION["accountID"]) AND $_SESSION["accountID"] != 0){
 			echo '
 					<li class="nav-item dropdown '.$accountActive.' ">
@@ -104,8 +106,10 @@ class dashboardLib{
 							<i class="fa fa-user" aria-hidden="true"></i> '.$this->getLocalizedString("accountManagement").'
 						</a>
 						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-							<a class="dropdown-item" href="../tools/account/changePassword.php">'.$this->getLocalizedString("changePassword").' (T)</a>
-							<a class="dropdown-item" href="../tools/account/changeUsername.php">'.$this->getLocalizedString("changeUsername").' (T)</a>
+							<a class="dropdown-item" href="account/changePassword.php">'.$this->getLocalizedString("changePassword").'</a>
+							<a class="dropdown-item" href="account/changeUsername.php">'.$this->getLocalizedString("changeUsername").'</a>
+							<a class="dropdown-item" href="account/myLevels.php">'.$this->getLocalizedString("myLevels").'</a>
+							<a class="dropdown-item" href="account/myComments.php">'.$this->getLocalizedString("commentshistory").'</a>
 							<a class="dropdown-item" href="account/unlisted.php">'.$this->getLocalizedString("unlistedLevels").'</a>
 						</div>
 					</li>' . $browse . '<a class="dropdown-item" href="../tools/stats/songList.php">'.$this->getLocalizedString("songs").' (T)</a></div></li>';
@@ -116,7 +120,19 @@ class dashboardLib{
 						</a>
 						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
 							<a class="dropdown-item" href="../tools/leaderboardsBan.php">'.$this->getLocalizedString("leaderboardBan").' (T)</a>
-							<a class="dropdown-item" href="../tools/packCreate.php">'.$this->getLocalizedString("packManage").' (T)</a>
+						</div>
+					</li>';
+			}
+			if($gs->checkPermission($_SESSION["accountID"], "adminTools")){
+				echo '<li class="nav-item dropdown '.$adminActive.'">
+						<a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+							<i class="fa fa-wrench" aria-hidden="true"></i> '.$this->getLocalizedString("adminTools").'
+						</a>
+						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+							<a class="dropdown-item" href="admin/levelReupload.php">'.$this->getLocalizedString("levelReupload").'</a>
+							<a class="dropdown-item" href="admin/packCreate.php">'.$this->getLocalizedString("packManage").'</a>
+							<a class="dropdown-item" href="admin/gauntletCreate.php">Create Gauntlet</a>
+							<a class="dropdown-item" href="admin/passwordRecovery.php">'.$this->getLocalizedString("passrecovery").'</a>
 						</div>
 					</li>';
 			}
@@ -128,7 +144,6 @@ class dashboardLib{
 							<i class="fa fa-upload" aria-hidden="true"></i> '.$this->getLocalizedString("reuploadSection").'
 						</a>
 						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-							<a class="dropdown-item" href="../tools/levelReupload.php">'.$this->getLocalizedString("levelReupload").' (T) (note: gonna be both gdps to gd and gd to gdps)</a>
 							<a class="dropdown-item" href="reupload/songAdd.php">'.$this->getLocalizedString("songAdd").'</a>
 						</div>
 					</li>
@@ -137,14 +152,17 @@ class dashboardLib{
 							<i class="fa fa-bar-chart" aria-hidden="true"></i> '.$this->getLocalizedString("statsSection").'
 						</a>
 						<div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+							<a class="dropdown-item" href="stats/general.php">'.$this->getLocalizedString("generalstats").'</a>
 							<a class="dropdown-item" href="stats/dailyTable.php">'.$this->getLocalizedString("dailyTable").'</a>
 							<a class="dropdown-item" href="stats/modActions.php">'.$this->getLocalizedString("modActions").'</a>
-							<a class="dropdown-item" href="../tools/stats/top24h.php">'.$this->getLocalizedString("leaderboardTime").' (T)</a>
+							<a class="dropdown-item" href="stats/top24h.php">'.$this->getLocalizedString("leaderboardTime").'</a>
+							<a class="dropdown-item" href="stats/packTable.php">'.$this->getLocalizedString("packTable").'</a>
+							<a class="dropdown-item" href="stats/gauntletTable.php">'.$this->getLocalizedString("gauntletTable").'</a>
 						</div>
 					</li>
 					<li class="nav-item">
 						<a class="nav-link" href="iconRender.php">
-							<i class="fa fa-picture-o" aria-hidden="true"></i> Icon Render
+							<i class="fa fa-picture-o" aria-hidden="true"></i> '.$this->getLocalizedString("iconRender").'
 						</a>
 					</li>
 				</ul>
