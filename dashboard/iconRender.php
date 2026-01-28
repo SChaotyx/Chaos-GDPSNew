@@ -2,7 +2,7 @@
 session_start();
 require "incl/dashboardLib.php";
 $dl = new dashboardLib();
-require "../incl/discord/discordLib.php";
+require "../incl/render/render.php";
 require "../incl/lib/connection.php";
 
 // Mapa de tipos de iconos
@@ -19,12 +19,12 @@ $iconTypes = [
 ];
 
 // Cargar colores disponibles
-$colorsJson = file_get_contents(__DIR__ . '/../incl/discord/resources/colors.json');
+$colorsJson = file_get_contents(__DIR__ . '/../incl/render/colors.json');
 $colorsData = json_decode($colorsJson, true);
-$availableColorIds = array_column($colorsData, 'id');
+$availableColorIds = $colorsData ? array_column($colorsData, 'id') : [];
 
 // Escanear iconos disponibles por tipo
-$iconsDir = __DIR__ . '/../incl/discord/resources/icons';
+$iconsDir = __DIR__ . '/../incl/render/icons';
 $availableIconsByType = [];
 
 foreach ($iconTypes as $typeId => $typeName) {
@@ -55,26 +55,28 @@ $selectedColor2 = null;
 $selectedColor3 = null;
 $selectedIncludeJetpack = 'yes'; // Default: include jetpack in the dropdown
 
-// Procesar solicitudes GET para mostrar imรกgenes
+// Procesar solicitudes GET para mostrar imágenes
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['icon']) || isset($_GET['iconset']))) {
     while (ob_get_level()) {
         ob_end_clean();
     }
     header('Content-Type: image/png');
-    $discord = new discordLib();
+    $iconRenderer = new IconRenderer();
     
     if (isset($_GET['icon'])) {
         $params = json_decode(base64_decode($_GET['icon']), true);
         if ($params) {
-            $image = $discord->iconProfile(
-                null,
+            $iconData = [
+                'iconType' => $params['iconType'],
+                'iconID' => $params['iconID'] ?? $params['icon'] ?? null,
+                'color1' => $params['color1'],
+                'color2' => $params['color2'],
+                'color3' => $params['color3'],
+                'glow' => $params['glowEnabled']
+            ];
+            $image = $iconRenderer->getIcon(
+                $iconData,
                 $params['imageRes'] ?? 'uhd',
-                $params['iconType'],
-                $params['icon'],
-                $params['color1'],
-                $params['color2'],
-                $params['color3'],
-                $params['glowEnabled'],
                 false
             );
             
@@ -86,38 +88,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && (isset($_GET['icon']) || isset($_GET
                 die();
             }
         }
-    } else    if (isset($_GET['iconset'])) {
+    } else if (isset($_GET['iconset'])) {
         $params = json_decode(base64_decode($_GET['iconset']), true);
         if ($params) {
-            // Si hay accountID, usarlo directamente; si no, usar los parรกmetros
+            // Si hay accountID, obtener datos de la BD; si no, usar los parámetros directamente
             if (isset($params['accountID'])) {
-                $image = $discord->iconSetProfile(
-                    $params['accountID'],
+                require "../incl/lib/connection.php";
+                $query = $db->prepare("SELECT iconType, accIcon, accShip, accBall, accBird, accDart, accRobot, accSpider, accSwing, accJetpack, color1, color2, color3, accGlow FROM users WHERE extID = :extID");
+                $query->execute([':extID' => $params['accountID']]);
+                $user = $query->fetch();
+                
+                if ($user) {
+                    $iconSetData = [
+                        'iconType' => $user["iconType"],
+                        'accs' => [
+                            0 => $user["accIcon"], 1 => $user["accShip"], 2 => $user["accBall"],
+                            3 => $user["accBird"], 4 => $user["accDart"], 5 => $user["accRobot"],
+                            6 => $user["accSpider"], 7 => $user["accSwing"], 8 => $user["accJetpack"]
+                        ],
+                        'color1' => $user["color1"],
+                        'color2' => $user["color2"],
+                        'color3' => $user["color3"],
+                        'glow' => ($user["accGlow"] == 1)
+                    ];
+                } else {
+                    $iconSetData = null;
+                }
+            } else {
+                $iconSetData = [
+                    'iconType' => $params['iconType'],
+                    'accs' => $params['accs'],
+                    'color1' => $params['color1'],
+                    'color2' => $params['color2'],
+                    'color3' => $params['color3'],
+                    'glow' => $params['glowEnabled']
+                ];
+            }
+            
+            if ($iconSetData) {
+                $image = $iconRenderer->getIconSet(
+                    $iconSetData,
                     $params['fullset'] ?? true,
                     $params['includeJetpack'] ?? false,
                     $params['imageRes'] ?? 'hd',
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
                     false
                 );
             } else {
-                $image = $discord->iconSetProfile(
-                    null,
-                    $params['fullset'] ?? true,
-                    $params['includeJetpack'] ?? false,
-                    $params['imageRes'] ?? 'hd',
-                    $params['iconType'],
-                    $params['accs'],
-                    $params['color1'],
-                    $params['color2'],
-                    $params['color3'],
-                    $params['glowEnabled'],
-                    false
-                );
+                $image = null;
             }
             
             if ($image) {
@@ -145,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     try {
-        $discord = new discordLib();
+        $iconRenderer = new IconRenderer();
         
         if (isset($_POST['generate_icon'])) {
             $selectedType = isset($_POST['icon_type']) ? (int)$_POST['icon_type'] : null;
@@ -205,22 +222,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $imageRes = ($selectedQuality === 'low' || $selectedQuality === '') ? '' : $selectedQuality;
                 
                 try {
-                    $image = $discord->iconProfile(
-                        null,
+                    $iconData = [
+                        'iconType' => $selectedType,
+                        'iconID' => $iconId,
+                        'color1' => $color1,
+                        'color2' => $color2,
+                        'color3' => $color3,
+                        'glow' => $glowEnabled
+                    ];
+                    $image = $iconRenderer->getIcon(
+                        $iconData,
                         $imageRes,
-                        $selectedType,
-                        $iconId,
-                        $color1,
-                        $color2,
-                        $color3,
-                        $glowEnabled,
                         false
                     );
                     
                     if ($image !== null && $image !== false) {
                         $generatedIconData = [
                             'iconType' => $selectedType,
-                            'icon' => $iconId,
+                            'iconID' => $iconId,
                             'color1' => $color1,
                             'color2' => $color2,
                             'color3' => $color3,
@@ -328,19 +347,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $imageRes = ($selectedQuality === 'low' || $selectedQuality === '') ? '' : $selectedQuality;
                 
                 try {
-                    $image = $discord->iconSetProfile(
-                        $accountID,
-                        true,
-                        $includeJetpack,
-                        $imageRes,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        false
-                    );
+                    $query = $db->prepare("SELECT iconType, accIcon, accShip, accBall, accBird, accDart, accRobot, accSpider, accSwing, accJetpack, color1, color2, color3, accGlow FROM users WHERE extID = :extID");
+                    $query->execute([':extID' => $accountID]);
+                    $user = $query->fetch();
+                    
+                    if ($user) {
+                        $iconSetData = [
+                            'iconType' => $user["iconType"],
+                            'accs' => [
+                                0 => $user["accIcon"], 1 => $user["accShip"], 2 => $user["accBall"],
+                                3 => $user["accBird"], 4 => $user["accDart"], 5 => $user["accRobot"],
+                                6 => $user["accSpider"], 7 => $user["accSwing"], 8 => $user["accJetpack"]
+                            ],
+                            'color1' => $user["color1"],
+                            'color2' => $user["color2"],
+                            'color3' => $user["color3"],
+                            'glow' => ($user["accGlow"] == 1)
+                        ];
+                        $image = $iconRenderer->getIconSet(
+                            $iconSetData,
+                            true,
+                            $includeJetpack,
+                            $imageRes,
+                            false
+                        );
+                    } else {
+                        $image = null;
+                    }
                 } catch (Exception $e) {
                     if ($isAjax) {
                         while (ob_get_level()) {
@@ -398,17 +431,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $imageRes = ($selectedQuality === 'low' || $selectedQuality === '') ? '' : $selectedQuality;
                 
                 try {
-                    $image = $discord->iconSetProfile(
-                        null,
+                    $iconSetData = [
+                        'iconType' => $iconType,
+                        'accs' => $accs,
+                        'color1' => $color1,
+                        'color2' => $color2,
+                        'color3' => $color3,
+                        'glow' => $glowEnabled
+                    ];
+                    $image = $iconRenderer->getIconSet(
+                        $iconSetData,
                         true,
                         $includeJetpack,
                         $imageRes,
-                        $iconType,
-                        $accs,
-                        $color1,
-                        $color2,
-                        $color3,
-                        $glowEnabled,
                         false
                     );
                 } catch (Exception $e) {
